@@ -31,15 +31,20 @@ export default function AbastecimentosPage() {
         if (!selectedCompany) return
         setLoading(true)
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from("fuel_records")
                 .select(`
                     *,
                     vehicles (placa, marca, modelo),
                     drivers (nome_completo)
                 `)
-                .eq("company_id", selectedCompany.id)
-                .order("data", { ascending: false })
+
+            // Aplica o filtro de empresa apenas se NÃO for "Todas as Empresas"
+            if (selectedCompany.id !== "all") {
+                query = query.eq("company_id", selectedCompany.id)
+            }
+
+            const { data, error } = await query.order("data", { ascending: false })
 
             if (error) {
                 console.error("Detalhes do erro Supabase:", error)
@@ -109,7 +114,7 @@ export default function AbastecimentosPage() {
                 ) : filteredRecords.length === 0 ? (
                     <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-2">
                         <Fuel className="h-8 w-8 text-slate-300" />
-                        <span className="text-sm font-medium text-slate-600">Nenum abastecimento encontrado</span>
+                        <span className="text-sm font-medium text-slate-600">Nenhum abastecimento encontrado</span>
                         <span className="text-xs text-slate-400">Registre os cupons de combustível para acompanhar o consumo</span>
                     </div>
                 ) : (
