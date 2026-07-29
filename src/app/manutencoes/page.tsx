@@ -34,26 +34,34 @@ export default function ManutencoesPage() {
         setLoading(true)
         try {
             // 1. Manutenções Registradas
-            const { data: mainData, error: mainErr } = await supabase
+            let mainQuery = supabase
                 .from("maintenances")
                 .select(`
                     *,
                     vehicles (placa, marca, modelo)
                 `)
-                .eq("company_id", selectedCompany.id)
-                .order("data", { ascending: false })
+
+            if (selectedCompany.id !== "all") {
+                mainQuery = mainQuery.eq("company_id", selectedCompany.id)
+            }
+
+            const { data: mainData, error: mainErr } = await mainQuery.order("data", { ascending: false })
 
             if (mainErr) throw mainErr
 
             // 2. Ordens de Serviço
-            const { data: osData, error: osErr } = await supabase
+            let osQuery = supabase
                 .from("service_orders")
                 .select(`
                     *,
                     vehicles (placa, marca, modelo)
                 `)
-                .eq("company_id", selectedCompany.id)
-                .order("data_abertura", { ascending: false })
+
+            if (selectedCompany.id !== "all") {
+                osQuery = osQuery.eq("company_id", selectedCompany.id)
+            }
+
+            const { data: osData, error: osErr } = await osQuery.order("data_abertura", { ascending: false })
 
             if (osErr) throw osErr
 

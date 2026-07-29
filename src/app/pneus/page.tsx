@@ -30,8 +30,8 @@ export default function PneusPage() {
         try {
             let vehicleIds: string[] = []
 
-            // 1. Se houver empresa selecionada, busca os IDs dos veículos dela
-            if (selectedCompany?.id) {
+            // 1. Se houver empresa selecionada e NÃO for "Todas as Empresas", busca os IDs dos veículos dela
+            if (selectedCompany?.id && selectedCompany.id !== "all") {
                 const { data: companyVehicles } = await supabase
                     .from("vehicles")
                     .select("id")
@@ -46,8 +46,8 @@ export default function PneusPage() {
                 .select("*, vehicles(id, placa, marca, modelo, company_id)")
                 .order("created_at", { ascending: false })
 
-            // 3. Aplica o filtro: Veículos da empresa selecionada OU pneus em estoque (vehicle_id nulo)
-            if (selectedCompany?.id) {
+            // 3. Aplica o filtro apenas se for uma empresa específica
+            if (selectedCompany?.id && selectedCompany.id !== "all") {
                 if (vehicleIds.length > 0) {
                     query = query.or(`vehicle_id.in.(${vehicleIds.join(",")}),vehicle_id.is.null`)
                 } else {

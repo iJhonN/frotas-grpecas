@@ -16,7 +16,7 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, AlertOctagon, Loader2, Calendar } from "lucide-react"
+import { Plus, Search, AlertOctagon, Loader2 } from "lucide-react"
 
 export default function MultasPage() {
     const { selectedCompany } = useCompany()
@@ -31,15 +31,20 @@ export default function MultasPage() {
         if (!selectedCompany) return
         setLoading(true)
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from("fines")
                 .select(`
                     *,
                     vehicles (placa, marca, modelo),
                     drivers:driver_id_indicado (nome_completo, cpf)
                 `)
-                .eq("company_id", selectedCompany.id)
-                .order("data_infracao", { ascending: false })
+
+            // Aplica filtro de empresa apenas se NÃO for "Todas as Empresas"
+            if (selectedCompany.id !== "all") {
+                query = query.eq("company_id", selectedCompany.id)
+            }
+
+            const { data, error } = await query.order("data_infracao", { ascending: false })
 
             if (error) throw error
             setFines(data || [])
