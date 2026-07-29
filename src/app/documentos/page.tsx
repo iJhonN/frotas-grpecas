@@ -31,14 +31,19 @@ export default function DocumentosPage() {
         if (!selectedCompany) return
         setLoading(true)
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from("vehicle_documents")
                 .select(`
                     *,
                     vehicles (placa, marca, modelo)
                 `)
-                .eq("company_id", selectedCompany.id)
-                .order("data_vencimento", { ascending: true })
+
+            // Aplica o filtro de empresa apenas se NÃO for "Todas as Empresas"
+            if (selectedCompany.id !== "all") {
+                query = query.eq("company_id", selectedCompany.id)
+            }
+
+            const { data, error } = await query.order("data_vencimento", { ascending: true })
 
             if (error) throw error
             setDocuments(data || [])

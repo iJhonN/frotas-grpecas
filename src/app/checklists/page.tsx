@@ -31,15 +31,20 @@ export default function ChecklistsPage() {
         if (!selectedCompany) return
         setLoading(true)
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from("inspections")
                 .select(`
                     *,
                     vehicles (placa, marca, modelo),
                     drivers (nome_completo)
                 `)
-                .eq("company_id", selectedCompany.id)
-                .order("data", { ascending: false })
+
+            // Aplica o filtro de empresa apenas se NÃO for "Todas as Empresas"
+            if (selectedCompany.id !== "all") {
+                query = query.eq("company_id", selectedCompany.id)
+            }
+
+            const { data, error } = await query.order("data", { ascending: false })
 
             if (error) throw error
             setInspections(data || [])
