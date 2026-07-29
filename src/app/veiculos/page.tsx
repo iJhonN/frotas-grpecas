@@ -31,11 +31,16 @@ export default function VeiculosPage() {
         if (!selectedCompany) return
         setLoading(true)
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from("vehicles")
                 .select("*")
-                .eq("company_id", selectedCompany.id)
-                .order("created_at", { ascending: false })
+
+            // Aplica filtro de empresa apenas se NÃO for "Todas as Empresas"
+            if (selectedCompany.id !== "all") {
+                query = query.eq("company_id", selectedCompany.id)
+            }
+
+            const { data, error } = await query.order("created_at", { ascending: false })
 
             if (error) throw error
             setVehicles(data || [])

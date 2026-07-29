@@ -1,9 +1,6 @@
 "use client"
 
-import { useCompany } from "@/contexts/company-context"
-import { createClient } from "@/lib/supabase/client"
-import { useRouter } from "next/navigation"
-import { Building2, LogOut, User } from "lucide-react"
+import { useCompany, ALL_COMPANIES } from "@/contexts/company-context"
 import {
     Select,
     SelectContent,
@@ -11,73 +8,80 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { Button } from "@/components/ui/button"
+import { Building2, Loader2, Globe } from "lucide-react"
 
 export function Header() {
-    const { selectedCompany, companies, setSelectedCompany } = useCompany()
-    const router = useRouter()
-    const supabase = createClient()
+    const { companies, selectedCompany, setSelectedCompany, isLoading } = useCompany()
 
-    const handleLogout = async () => {
-        await supabase.auth.signOut()
-        router.push("/login")
-        router.refresh()
+    const handleValueChange = (val: string | null) => {
+        if (!val || val === "all") {
+            setSelectedCompany(ALL_COMPANIES)
+            return
+        }
+
+        const found = companies.find((c) => c.id === val)
+        if (found) {
+            setSelectedCompany(found)
+        }
+    }
+
+    // Função auxiliar para obter o nome visível da empresa
+    const getCompanyName = (comp: any) => {
+        if (!comp) return "Todas as Empresas"
+        if (comp.id === "all") return "Todas as Empresas"
+        return comp.nome || comp.razao_social || comp.nome_fantasia || "Empresa sem nome"
     }
 
     return (
-        <header className="h-16 border-b border-slate-200 bg-white px-6 flex items-center justify-between sticky top-0 z-40 shadow-xs">
-            {/* Seletor de Empresa */}
+        <header className="h-16 border-b border-slate-200 bg-white px-6 flex items-center justify-between sticky top-0 z-40 shadow-2xs">
             <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 text-slate-500 text-xs font-semibold uppercase tracking-wider">
-                    <Building2 className="h-4 w-4 text-blue-600" />
-                    <span>Empresa Ativa:</span>
-                </div>
+                <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider hidden sm:inline">
+                    Empresa Ativa:
+                </span>
 
-                {companies.length > 0 ? (
+                {isLoading ? (
+                    <div className="flex items-center gap-2 text-xs text-slate-400 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                        <span>Carregando empresas...</span>
+                    </div>
+                ) : (
                     <Select
-                        value={selectedCompany?.id}
-                        onValueChange={(id) => {
-                            const comp = companies.find((c) => c.id === id)
-                            if (comp) setSelectedCompany(comp)
-                        }}
+                        value={selectedCompany?.id || "all"}
+                        onValueChange={handleValueChange}
                     >
-                        <SelectTrigger className="w-[280px] h-9 border-slate-200 text-sm font-medium bg-slate-50 focus:ring-blue-600/20 rounded-lg">
-                            <SelectValue>
-                                {selectedCompany ? selectedCompany.nome : "Selecione uma empresa"}
+                        <SelectTrigger className="h-9 w-[260px] rounded-xl border-slate-200 bg-slate-50 text-xs font-semibold text-slate-800 focus:ring-blue-500">
+                            <SelectValue placeholder="Selecione a empresa">
+                                <div className="flex items-center gap-2 truncate">
+                                    {selectedCompany?.id === "all" ? (
+                                        <Globe className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                                    ) : (
+                                        <Building2 className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+                                    )}
+                                    <span className="truncate">
+                                        {getCompanyName(selectedCompany)}
+                                    </span>
+                                </div>
                             </SelectValue>
                         </SelectTrigger>
-                        <SelectContent className="bg-white border border-slate-200 shadow-xl rounded-xl z-50 min-w-[280px]">
-                            {companies.map((company: any) => (
-                                <SelectItem
-                                    key={company.id}
-                                    value={company.id}
-                                    className="cursor-pointer py-2 text-xs font-medium focus:bg-slate-100"
-                                >
-                                    {company.nome}
+
+                        <SelectContent className="rounded-xl border-slate-200">
+                            {companies.map((comp: any) => (
+                                <SelectItem key={comp.id} value={comp.id} className="text-xs font-medium cursor-pointer">
+                                    <div className="flex items-center gap-2">
+                                        {comp.id === "all" ? (
+                                            <Globe className="h-3.5 w-3.5 text-blue-600 shrink-0" />
+                                        ) : (
+                                            <Building2 className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                                        )}
+                                        <span className="truncate">
+                                            {getCompanyName(comp)}
+                                        </span>
+                                    </div>
                                 </SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
-                ) : (
-                    <span className="text-xs text-slate-400 font-medium">Carregando empresas...</span>
                 )}
-            </div>
-
-            {/* Perfil & Logout */}
-            <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600">
-                    <User className="h-4 w-4" />
-                </div>
-
-                <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleLogout}
-                    className="text-slate-600 hover:text-red-600 hover:bg-red-50 h-9 rounded-lg gap-2 text-xs font-medium"
-                >
-                    <LogOut className="h-4 w-4" />
-                    Sair
-                </Button>
             </div>
         </header>
     )

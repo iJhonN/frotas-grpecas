@@ -31,14 +31,19 @@ export default function MotoristasPage() {
         if (!selectedCompany) return
         setLoading(true)
         try {
-            const { data, error } = await supabase
+            let query = supabase
                 .from("drivers")
                 .select(`
                     *,
                     vehicles:veiculo_atual_id (placa, marca, modelo)
                 `)
-                .eq("company_id", selectedCompany.id)
-                .order("nome_completo", { ascending: true })
+
+            // Aplica filtro de empresa apenas se NÃO for "Todas as Empresas"
+            if (selectedCompany.id !== "all") {
+                query = query.eq("company_id", selectedCompany.id)
+            }
+
+            const { data, error } = await query.order("nome_completo", { ascending: true })
 
             if (error) throw error
             setDrivers(data || [])
