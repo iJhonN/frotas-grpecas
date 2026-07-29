@@ -50,7 +50,7 @@ export default function LoginPage() {
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                            Grupo Felinto
+                            Grupo GR Autopeças
                         </h1>
                         <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mt-0.5">
                             Gestão Integrada de Frotas

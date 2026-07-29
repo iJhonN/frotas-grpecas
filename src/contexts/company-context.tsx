@@ -4,7 +4,18 @@ import React, { createContext, useContext, useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Database } from "@/types/database.types"
 
-type Company = Database["public"]["Tables"]["companies"]["Row"]
+export type Company = Database["public"]["Tables"]["companies"]["Row"]
+
+// Objeto virtual representando a opção consolidada de todas as empresas
+export const ALL_COMPANIES: Company = {
+    id: "all",
+    razao_social: "Todas as Empresas",
+    nome_fantasia: "Visão Consolidada (Grupo GR)",
+    cnpj: null,
+    status: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+} as any
 
 interface CompanyContextType {
     selectedCompany: Company | null
@@ -17,7 +28,7 @@ const CompanyContext = createContext<CompanyContextType | undefined>(undefined)
 
 export function CompanyProvider({ children }: { children: React.ReactNode }) {
     const [companies, setCompanies] = useState<Company[]>([])
-    const [selectedCompany, setSelectedCompanyState] = useState<Company | null>(null)
+    const [selectedCompany, setSelectedCompanyState] = useState<Company | null>(ALL_COMPANIES)
     const [isLoading, setIsLoading] = useState(true)
     const supabase = createClient()
 
@@ -28,14 +39,27 @@ export function CompanyProvider({ children }: { children: React.ReactNode }) {
                     .from("companies")
                     .select("*")
                     .eq("status", true)
+                    .order("razao_social")
 
                 if (error) throw error
 
-                if (data && data.length > 0) {
-                    setCompanies(data)
-                    const savedCompanyId = localStorage.getItem("selectedCompanyId")
-                    const found = data.find((c) => c.id === savedCompanyId)
-                    setSelectedCompanyState(found || data[0])
+                const list = data || []
+                // Inclui a opção "Todas as Empresas" no topo da lista
+                const fullList = [ALL_COMPANIES, ...list]
+                setCompanies(fullList)
+
+                // Verifica se há alguma seleção prévia salva no localStorage
+                const savedCompanyId = localStorage.getItem("selectedCompanyId")
+                if (savedCompanyId) {
+                    if (savedCompanyId === "all") {
+                        setSelectedCompanyState(ALL_COMPANIES)
+                    } else {
+                        const found = list.find((c) => c.id === savedCompanyId)
+                        if (found) setSelectedCompanyState(found)
+                    }
+                } else {
+                    // Padrão: inicia exibindo "Todas as Empresas"
+                    setSelectedCompanyState(ALL_COMPANIES)
                 }
             } catch (err) {
                 console.error("Erro ao carregar empresas:", err)
