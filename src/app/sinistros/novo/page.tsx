@@ -155,7 +155,10 @@ export default function NovoSinistroPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Veículo Envolvido *</Label>
-                            <Select value={formData.vehicle_id} onValueChange={(val) => setFormData({ ...formData, vehicle_id: val })}>
+                            <Select
+                                value={formData.vehicle_id}
+                                onValueChange={(val: string | null) => setFormData((prev) => ({ ...prev, vehicle_id: val || "" }))}
+                            >
                                 <SelectTrigger className="h-10 w-full rounded-xl border-slate-200">
                                     <SelectValue placeholder="Escolha o veículo">
                                         {selectedVehicleObj
@@ -175,7 +178,10 @@ export default function NovoSinistroPage() {
 
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Motorista do Conduto</Label>
-                            <Select value={formData.driver_id} onValueChange={(val) => setFormData({ ...formData, driver_id: val })}>
+                            <Select
+                                value={formData.driver_id}
+                                onValueChange={(val: string | null) => setFormData((prev) => ({ ...prev, driver_id: val || "sem_driver" }))}
+                            >
                                 <SelectTrigger className="h-10 w-full rounded-xl border-slate-200">
                                     <SelectValue placeholder="Selecione o motorista">
                                         {formData.driver_id === "sem_driver"
@@ -217,7 +223,10 @@ export default function NovoSinistroPage() {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Tipo de Sinistro *</Label>
-                            <Select value={formData.tipo} onValueChange={(val) => setFormData({ ...formData, tipo: val })}>
+                            <Select
+                                value={formData.tipo}
+                                onValueChange={(val: string | null) => setFormData((prev) => ({ ...prev, tipo: val || "colisao" }))}
+                            >
                                 <SelectTrigger className="h-10 w-full rounded-xl border-slate-200">
                                     <SelectValue placeholder="Selecione" />
                                 </SelectTrigger>
@@ -234,7 +243,10 @@ export default function NovoSinistroPage() {
 
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Gravidade *</Label>
-                            <Select value={formData.gravidade} onValueChange={(val) => setFormData({ ...formData, gravidade: val })}>
+                            <Select
+                                value={formData.gravidade}
+                                onValueChange={(val: string | null) => setFormData((prev) => ({ ...prev, gravidade: val || "leve" }))}
+                            >
                                 <SelectTrigger className="h-10 w-full rounded-xl border-slate-200">
                                     <SelectValue placeholder="Selecione" />
                                 </SelectTrigger>
@@ -249,7 +261,10 @@ export default function NovoSinistroPage() {
 
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Culpabilidade *</Label>
-                            <Select value={formData.culpabilidade} onValueChange={(val) => setFormData({ ...formData, culpabilidade: val })}>
+                            <Select
+                                value={formData.culpabilidade}
+                                onValueChange={(val: string | null) => setFormData((prev) => ({ ...prev, culpabilidade: val || "motorista_proprio" }))}
+                            >
                                 <SelectTrigger className="h-10 w-full rounded-xl border-slate-200">
                                     <SelectValue placeholder="Selecione" />
                                 </SelectTrigger>
@@ -296,7 +311,7 @@ export default function NovoSinistroPage() {
                             <Label className="text-xs font-medium text-slate-700">Possui Seguro?</Label>
                             <Select
                                 value={formData.tem_seguro ? "sim" : "nao"}
-                                onValueChange={(val) => setFormData({ ...formData, tem_seguro: val === "sim" })}
+                                onValueChange={(val: string | null) => setFormData((prev) => ({ ...prev, tem_seguro: val === "sim" }))}
                             >
                                 <SelectTrigger className="h-10 w-full rounded-xl border-slate-200">
                                     <SelectValue />
@@ -311,7 +326,10 @@ export default function NovoSinistroPage() {
                         {formData.tem_seguro && (
                             <div className="space-y-1.5">
                                 <Label className="text-xs font-medium text-slate-700">Apólice Vinculada</Label>
-                                <Select value={formData.apolice_id} onValueChange={(val) => setFormData({ ...formData, apolice_id: val })}>
+                                <Select
+                                    value={formData.apolice_id}
+                                    onValueChange={(val: string | null) => setFormData((prev) => ({ ...prev, apolice_id: val || "sem_apolice" }))}
+                                >
                                     <SelectTrigger className="h-10 w-full rounded-xl border-slate-200">
                                         <SelectValue placeholder="Selecione a apólice">
                                             {formData.apolice_id === "sem_apolice"

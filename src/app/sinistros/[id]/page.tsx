@@ -34,7 +34,26 @@ export default function DetalhesSinistroPage({
     const [drivers, setDrivers] = useState<any[]>([])
     const [policies, setPolicies] = useState<any[]>([])
 
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<{
+        vehicle_id: string
+        driver_id: string
+        tipo: string
+        gravidade: string
+        culpabilidade: string
+        data: string
+        descricao_local: string
+        numero_bo: string
+        tem_seguro: boolean
+        apolice_id: string
+        franquia: string
+        custo_total: string
+        reembolso: string
+        data_liberacao: string
+        dias_parado: string
+        status: string
+        ref_financeiro: string
+        observacoes: string
+    }>({
         vehicle_id: "",
         driver_id: "sem_driver",
         tipo: "colisao",
@@ -225,7 +244,10 @@ export default function DetalhesSinistroPage({
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Veículo Envolvido *</Label>
-                            <Select value={formData.vehicle_id} onValueChange={(val) => setFormData({ ...formData, vehicle_id: val })}>
+                            <Select
+                                value={formData.vehicle_id}
+                                onValueChange={(val: string | null) => setFormData((prev) => ({ ...prev, vehicle_id: val || "" }))}
+                            >
                                 <SelectTrigger className="h-10 w-full rounded-xl border-slate-200">
                                     <SelectValue placeholder="Escolha o veículo" />
                                 </SelectTrigger>
@@ -241,7 +263,10 @@ export default function DetalhesSinistroPage({
 
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Motorista do Conduto</Label>
-                            <Select value={formData.driver_id} onValueChange={(val) => setFormData({ ...formData, driver_id: val })}>
+                            <Select
+                                value={formData.driver_id}
+                                onValueChange={(val: string | null) => setFormData((prev) => ({ ...prev, driver_id: val || "sem_driver" }))}
+                            >
                                 <SelectTrigger className="h-10 w-full rounded-xl border-slate-200">
                                     <SelectValue placeholder="Selecione o motorista" />
                                 </SelectTrigger>
@@ -258,7 +283,10 @@ export default function DetalhesSinistroPage({
 
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Status Geral *</Label>
-                            <Select value={formData.status} onValueChange={(val) => setFormData({ ...formData, status: val })}>
+                            <Select
+                                value={formData.status}
+                                onValueChange={(val: string | null) => setFormData((prev) => ({ ...prev, status: val || "em_andamento" }))}
+                            >
                                 <SelectTrigger className="h-10 w-full rounded-xl border-slate-200">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -281,7 +309,10 @@ export default function DetalhesSinistroPage({
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Tipo de Sinistro *</Label>
-                            <Select value={formData.tipo} onValueChange={(val) => setFormData({ ...formData, tipo: val })}>
+                            <Select
+                                value={formData.tipo}
+                                onValueChange={(val: string | null) => setFormData((prev) => ({ ...prev, tipo: val || "colisao" }))}
+                            >
                                 <SelectTrigger className="h-10 w-full rounded-xl border-slate-200">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -298,7 +329,10 @@ export default function DetalhesSinistroPage({
 
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Gravidade *</Label>
-                            <Select value={formData.gravidade} onValueChange={(val) => setFormData({ ...formData, gravidade: val })}>
+                            <Select
+                                value={formData.gravidade}
+                                onValueChange={(val: string | null) => setFormData((prev) => ({ ...prev, gravidade: val || "leve" }))}
+                            >
                                 <SelectTrigger className="h-10 w-full rounded-xl border-slate-200">
                                     <SelectValue />
                                 </SelectTrigger>
@@ -313,7 +347,10 @@ export default function DetalhesSinistroPage({
 
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Culpabilidade *</Label>
-                            <Select value={formData.culpabilidade} onValueChange={(val) => setFormData({ ...formData, culpabilidade: val })}>
+                            <Select
+                                value={formData.culpabilidade}
+                                onValueChange={(val: string | null) => setFormData((prev) => ({ ...prev, culpabilidade: val || "motorista_proprio" }))}
+                            >
                                 <SelectTrigger className="h-10 w-full rounded-xl border-slate-200">
                                     <SelectValue />
                                 </SelectTrigger>

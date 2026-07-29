@@ -22,12 +22,14 @@ export function LgpdModal() {
                 // Verifica na tabela profiles se o usuário já aceitou
                 const { data: profile } = await supabase
                     .from("profiles")
-                    .select("lgpd_accepted_at")
+                    .select("*")
                     .eq("id", user.id)
-                    .single()
+                    .maybeSingle()
 
-                // Se o perfil existir e o campo estiver nulo, abre o modal obrigatório
-                if (profile && !profile.lgpd_accepted_at) {
+                const profileData = profile as any
+
+                // Se o perfil existir e o campo estiver nulo/vazio, abre o modal obrigatório
+                if (profileData && !profileData.lgpd_accepted_at) {
                     setOpen(true)
                 }
             } catch (err) {
@@ -44,7 +46,7 @@ export function LgpdModal() {
         try {
             const { error } = await supabase
                 .from("profiles")
-                .update({ lgpd_accepted_at: new Date().toISOString() })
+                .update({ lgpd_accepted_at: new Date().toISOString() } as any)
                 .eq("id", userId)
 
             if (error) throw error
