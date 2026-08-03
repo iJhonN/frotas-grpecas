@@ -3,15 +3,15 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import { Truck, ShieldCheck } from "lucide-react"
+import { Truck, Eye, EyeOff, Loader2, ArrowRight } from "lucide-react"
 
 export default function LoginPage() {
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
+    const [showPassword, setShowPassword] = useState(false)
     const [loading, setLoading] = useState(false)
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
@@ -38,89 +38,146 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen w-full flex flex-col justify-center items-center bg-slate-50 relative overflow-hidden p-4">
-            {/* Elemento decorativo de fundo de malha viária */}
-            <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:24px_24px] opacity-60 pointer-events-none" />
+        <div className="min-h-[100dvh] w-full grid grid-cols-1 lg:grid-cols-12 bg-slate-900 font-sans selection:bg-blue-600 selection:text-white">
 
-            <div className="w-full max-w-md z-10 space-y-6">
-                {/* Cabeçalho da Marca */}
-                <div className="flex flex-col items-center text-center space-y-2">
-                    <div className="h-14 w-14 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-500/20 ring-4 ring-white">
-                        <Truck className="h-7 w-7" />
+            {/* Lado Esquerdo - Institucional (Desktop) */}
+            <div className="hidden lg:flex lg:col-span-7 relative flex-col justify-between p-12 bg-slate-900 border-r border-slate-800">
+                {/* Header */}
+                <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
+                        <Truck className="h-5 w-5" />
                     </div>
                     <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+                        <span className="text-base font-bold text-white block leading-none">
                             Grupo GR Autopeças
-                        </h1>
-                        <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mt-0.5">
-                            Gestão Integrada de Frotas
-                        </p>
+                        </span>
+                        <span className="text-xs text-slate-400 mt-1 block">
+                            Gestão de Frota
+                        </span>
                     </div>
                 </div>
 
-                {/* Card Principal */}
-                <Card className="border border-slate-200/80 shadow-xl shadow-slate-200/50 bg-white rounded-2xl">
-                    <CardHeader className="space-y-1 pb-4">
-                        <CardTitle className="text-lg font-semibold text-slate-800 text-center">
-                            Acesse sua conta
-                        </CardTitle>
-                        <CardDescription className="text-center text-slate-500 text-sm">
-                            Informe suas credenciais para acessar o painel
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleLogin} className="space-y-4">
-                            {errorMsg && (
-                                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg">
-                                    {errorMsg}
-                                </div>
-                            )}
+                {/* Mensagem Principal */}
+                <div className="my-auto max-w-lg space-y-4">
+                    <h2 className="text-3xl font-bold text-white tracking-tight leading-snug">
+                        Painel de Controle e Gestão Operacional de Veículos
+                    </h2>
+                    <p className="text-slate-400 text-sm leading-relaxed">
+                        Acesse para gerenciar abastecimentos, manutenções, checklists e documentos da frota do Grupo GR.
+                    </p>
+                </div>
 
-                            <div className="space-y-1.5">
-                                <Label htmlFor="email" className="text-xs font-medium text-slate-700">
-                                    E-mail corporativo
-                                </Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="seu.nome@grupofelinto.com.br"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="h-11 border-slate-200 focus:border-blue-600 focus:ring-blue-600/20 rounded-xl"
-                                    required
-                                />
+                {/* Rodapé Interno */}
+                <div className="text-xs text-slate-500">
+                    © {new Date().getFullYear()} Grupo GR Autopeças
+                </div>
+            </div>
+
+            {/* Lado Direito - Formulário */}
+            <div className="lg:col-span-5 flex flex-col justify-between min-h-[100dvh] lg:min-h-0 p-6 sm:p-12 bg-slate-900 lg:bg-white dark:lg:bg-slate-900">
+
+                {/* Header exclusivo Mobile */}
+                <div className="flex lg:hidden items-center gap-3 pt-2 pb-6">
+                    <div className="h-10 w-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold">
+                        <Truck className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <span className="text-base font-bold text-white block leading-none">
+                            Grupo GR Autopeças
+                        </span>
+                        <span className="text-xs text-slate-400 mt-1 block">
+                            Gestão de Frota
+                        </span>
+                    </div>
+                </div>
+
+                {/* Formulário */}
+                <div className="my-auto max-w-sm w-full mx-auto space-y-6">
+                    <div className="space-y-1">
+                        <h1 className="text-xl sm:text-2xl font-bold text-white lg:text-slate-900 dark:lg:text-white tracking-tight">
+                            Entrar no sistema
+                        </h1>
+                        <p className="text-xs text-slate-400 lg:text-slate-500 dark:lg:text-slate-400">
+                            Digite suas credenciais de acesso
+                        </p>
+                    </div>
+
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        {errorMsg && (
+                            <div className="p-3 text-xs font-medium text-rose-500 lg:text-rose-600 bg-rose-500/10 lg:bg-rose-50 border border-rose-500/20 lg:border-rose-200 rounded-xl">
+                                {errorMsg}
                             </div>
+                        )}
 
-                            <div className="space-y-1.5">
-                                <Label htmlFor="password" className="text-xs font-medium text-slate-700">
-                                    Senha
-                                </Label>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="email" className="text-xs font-semibold text-slate-300 lg:text-slate-700 dark:lg:text-slate-300">
+                                E-mail
+                            </Label>
+                            <Input
+                                id="email"
+                                type="email"
+                                inputMode="email"
+                                autoCapitalize="none"
+                                autoComplete="email"
+                                placeholder="seu.email@grupofelinto.com.br"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="h-11 px-3.5 bg-slate-800 lg:bg-slate-50 dark:lg:bg-slate-800 border-slate-700 lg:border-slate-200 dark:lg:border-slate-700 text-white lg:text-slate-900 dark:lg:text-white focus:border-blue-600 rounded-xl text-xs transition-all placeholder:text-slate-500"
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <Label htmlFor="password" className="text-xs font-semibold text-slate-300 lg:text-slate-700 dark:lg:text-slate-300">
+                                Senha
+                            </Label>
+                            <div className="relative">
                                 <Input
                                     id="password"
-                                    type="password"
+                                    type={showPassword ? "text" : "password"}
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
-                                    className="h-11 border-slate-200 focus:border-blue-600 focus:ring-blue-600/20 rounded-xl"
+                                    className="h-11 pl-3.5 pr-10 bg-slate-800 lg:bg-slate-50 dark:lg:bg-slate-800 border-slate-700 lg:border-slate-200 dark:lg:border-slate-700 text-white lg:text-slate-900 dark:lg:text-white focus:border-blue-600 rounded-xl text-xs transition-all placeholder:text-slate-500"
                                     required
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 lg:hover:text-slate-600 dark:lg:hover:text-slate-200 transition-colors p-1"
+                                >
+                                    {showPassword ? (
+                                        <EyeOff className="h-4 w-4" />
+                                    ) : (
+                                        <Eye className="h-4 w-4" />
+                                    )}
+                                </button>
                             </div>
+                        </div>
 
-                            <Button
-                                type="submit"
-                                disabled={loading}
-                                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl shadow-md shadow-blue-600/20 transition-all mt-2"
-                            >
-                                {loading ? "Autenticando..." : "Entrar no Sistema"}
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
+                        <Button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs rounded-xl shadow-sm transition-all gap-2 mt-2"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                    <span>Entrando...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span>Acessar</span>
+                                    <ArrowRight className="h-4 w-4" />
+                                </>
+                            )}
+                        </Button>
+                    </form>
+                </div>
 
-                {/* Rodapé de Segurança */}
-                <div className="flex items-center justify-center gap-1.5 text-xs text-slate-400">
-                    <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                    <span>Ambiente operacional seguro &bull; Felinto Tech</span>
+                {/* Rodapé do Formulário */}
+                <div className="pt-6 text-center lg:text-left text-xs text-slate-500 border-t border-slate-800 lg:border-slate-100 dark:lg:border-slate-800">
+                    Sua conta de acesso é gerenciada pela administração do sistema.
                 </div>
             </div>
         </div>

@@ -53,7 +53,7 @@ export default function NovoAbastecimentoPage() {
         litros: "",
         valor_total: "",
         valor_por_litro: "",
-        combustivel: "DIESEL",
+        combustivel: "diesel",
         posto_fornecedor: "",
         forma_pagamento: "faturado",
         nota_fiscal_ref: "",
@@ -121,7 +121,7 @@ export default function NovoAbastecimentoPage() {
             ...prev,
             vehicle_id: vId,
             km_odometro: veh ? String(veh.km_atual) : "",
-            combustivel: veh?.combustivel || "DIESEL",
+            combustivel: veh?.combustivel ? String(veh.combustivel).toLowerCase() : "diesel",
         }))
         setOpenVehiclePopover(false)
     }
@@ -171,7 +171,7 @@ export default function NovoAbastecimentoPage() {
                 litros: Number(litros.toFixed(2)),
                 valor_total: Number(valorTotal.toFixed(2)),
                 valor_por_litro: valorPorLitro,
-                combustivel: formData.combustivel,
+                combustivel: formData.combustivel.toLowerCase(), // Garante minúsculo para a tabela fuel_records
                 posto_fornecedor: formData.posto_fornecedor,
                 forma_pagamento: formData.forma_pagamento,
                 nota_fiscal_ref: formData.nota_fiscal_ref || null,
@@ -399,15 +399,15 @@ export default function NovoAbastecimentoPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Combustível *</Label>
-                            <Select value={formData.combustivel} onValueChange={(val) => setFormData({ ...formData, combustivel: val || "DIESEL" })}>
+                            <Select value={formData.combustivel} onValueChange={(val) => setFormData({ ...formData, combustivel: val || "diesel" })}>
                                 <SelectTrigger className="h-10 rounded-xl border-slate-200"><SelectValue /></SelectTrigger>
                                 <SelectContent className="rounded-xl border-slate-200 bg-white">
-                                    <SelectItem value="DIESEL">Diesel</SelectItem>
-                                    <SelectItem value="GASOLINA">Gasolina</SelectItem>
-                                    <SelectItem value="ETANOL">Etanol</SelectItem>
-                                    <SelectItem value="FLEX">Flex</SelectItem>
-                                    <SelectItem value="GNV">GNV</SelectItem>
-                                    <SelectItem value="ELETRICO">Elétrico</SelectItem>
+                                    <SelectItem value="diesel">Diesel</SelectItem>
+                                    <SelectItem value="gasolina">Gasolina</SelectItem>
+                                    <SelectItem value="etanol">Etanol</SelectItem>
+                                    <SelectItem value="flex">Flex</SelectItem>
+                                    <SelectItem value="gnv">GNV</SelectItem>
+                                    <SelectItem value="eletrico">Elétrico</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
