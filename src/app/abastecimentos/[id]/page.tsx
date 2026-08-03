@@ -4,11 +4,12 @@ import { useState, useEffect, use } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
+import { compressImage } from "@/lib/utils/image-compressor"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, Save, Loader2, Trash2, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Save, Loader2, Trash2, AlertTriangle, ExternalLink, Camera, X } from "lucide-react"
 
 export default function DetalhesAbastecimentoPage({
                                                       params,
@@ -23,9 +24,18 @@ export default function DetalhesAbastecimentoPage({
     const [submitting, setSubmitting] = useState(false)
     const [deleting, setDeleting] = useState(false)
 
+    // Estado do Anexo
+    const [evidenciaUrl, setEvidenciaUrl] = useState<string | null>(null)
+    const [newFile, setNewFile] = useState<{ file: File | null; preview: string | null }>({
+        file: null,
+        preview: null,
+    })
+
     const [formData, setFormData] = useState({
+        company_id: "",
         vehicle_id: "",
         driver_id: "",
+        placa: "",
         data: "",
         km_odometro: "",
         litros: "",
@@ -46,7 +56,7 @@ export default function DetalhesAbastecimentoPage({
             try {
                 const { data, error } = await supabase
                     .from("fuel_records")
-                    .select("*")
+                    .select("*, vehicles(placa)")
                     .eq("id", id)
                     .single()
 
@@ -54,8 +64,10 @@ export default function DetalhesAbastecimentoPage({
 
                 if (data) {
                     setFormData({
+                        company_id: data.company_id || "",
                         vehicle_id: data.vehicle_id || "",
                         driver_id: data.driver_id || "",
+                        placa: data.vehicles?.placa || "VEICULO",
                         data: data.data ? new Date(data.data).toISOString().split("T")[0] : "",
                         km_odometro: String(data.km_odometro || ""),
                         litros: String(data.litros || ""),
@@ -69,6 +81,7 @@ export default function DetalhesAbastecimentoPage({
                         alerta: data.alerta || false,
                         observacoes: data.observacoes || "",
                     })
+                    setEvidenciaUrl(data.evidencia_link || null)
                 }
             } catch (err) {
                 console.error("Erro ao carregar abastecimento:", err)
@@ -82,11 +95,50 @@ export default function DetalhesAbastecimentoPage({
         if (id) fetchRecord()
     }, [id])
 
+    const handleFileChange = (file: File | null) => {
+        if (!file) return
+        const previewUrl = URL.createObjectURL(file)
+        setNewFile({ file, preview: previewUrl })
+    }
+
+    const removeNewFile = () => {
+        setNewFile({ file: null, preview: null })
+    }
+
+    // Compressão e Upload para o bucket "comprovantes"
+    const uploadAndCompressComprovante = async (file: File) => {
+        const compressedBlob = await compressImage(file, 1024, 0.65)
+        const fileExt = file.name.split('.').pop() || 'jpg'
+        const fileName = `${formData.company_id}/${formData.placa.toUpperCase()}/${Date.now()}_comprovante.${fileExt}`
+
+        const { error } = await supabase.storage
+            .from("comprovantes")
+            .upload(fileName, compressedBlob, {
+                contentType: file.type || "image/jpeg",
+                upsert: true,
+            })
+
+        if (error) throw error
+
+        const { data: publicUrlData } = supabase.storage
+            .from("comprovantes")
+            .getPublicUrl(fileName)
+
+        return publicUrlData.publicUrl
+    }
+
     const handleUpdate = async (e: React.FormEvent) => {
         e.preventDefault()
         setSubmitting(true)
 
         try {
+            let finalEvidenciaUrl = evidenciaUrl
+
+            // Se uma nova foto foi selecionada, faz o upload comprimido
+            if (newFile.file) {
+                finalEvidenciaUrl = await uploadAndCompressComprovante(newFile.file)
+            }
+
             const payload = {
                 data: new Date(formData.data).toISOString(),
                 km_odometro: Number(formData.km_odometro),
@@ -97,6 +149,7 @@ export default function DetalhesAbastecimentoPage({
                 posto_fornecedor: formData.posto_fornecedor,
                 forma_pagamento: formData.forma_pagamento,
                 nota_fiscal_ref: formData.nota_fiscal_ref || null,
+                evidencia_link: finalEvidenciaUrl,
                 observacoes: formData.observacoes || null,
             }
 
@@ -107,6 +160,8 @@ export default function DetalhesAbastecimentoPage({
 
             if (error) throw error
 
+            setEvidenciaUrl(finalEvidenciaUrl)
+            setNewFile({ file: null, preview: null })
             alert("Abastecimento atualizado com sucesso!")
             router.refresh()
         } catch (err: any) {
@@ -274,6 +329,78 @@ export default function DetalhesAbastecimentoPage({
                             onChange={(e) => setFormData({ ...formData, nota_fiscal_ref: e.target.value })}
                             className="h-10 rounded-xl border-slate-200"
                         />
+                    </div>
+                </div>
+
+                {/* Seção de Exibição e Alteração do Comprovante */}
+                <div className="space-y-2 pt-2 border-t border-slate-100">
+                    <Label className="text-xs font-medium text-slate-700 block">Comprovante / Cupom Fiscal</Label>
+
+                    <div className="p-4 rounded-2xl border border-slate-200 bg-slate-50 flex flex-col sm:flex-row items-center gap-4">
+                        {/* Preview da Imagem Atual ou da Nova Selecionada */}
+                        {(newFile.preview || evidenciaUrl) ? (
+                            <div className="relative group shrink-0">
+                                <img
+                                    src={newFile.preview || evidenciaUrl!}
+                                    alt="Comprovante"
+                                    className="h-32 w-32 object-cover rounded-xl border border-slate-200 bg-white shadow-xs"
+                                />
+                                {newFile.preview ? (
+                                    <button
+                                        type="button"
+                                        onClick={removeNewFile}
+                                        className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-rose-600 transition-colors shadow-sm"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                ) : (
+                                    <a
+                                        href={evidenciaUrl!}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="absolute inset-0 bg-slate-900/40 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white gap-1 text-[10px] font-semibold"
+                                    >
+                                        <ExternalLink className="h-4 w-4" />
+                                        <span>Abrir</span>
+                                    </a>
+                                )}
+                            </div>
+                        ) : (
+                            <div className="h-24 w-24 rounded-xl border-2 border-dashed border-slate-300 bg-white flex flex-col items-center justify-center text-slate-400 shrink-0">
+                                <Camera className="h-6 w-6 mb-1 text-slate-300" />
+                                <span className="text-[10px]">Sem foto</span>
+                            </div>
+                        )}
+
+                        {/* Botões de Ação e Alteração */}
+                        <div className="flex flex-col gap-2 w-full">
+                            {evidenciaUrl && !newFile.preview && (
+                                <a
+                                    href={evidenciaUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={buttonVariants({
+                                        variant: "outline",
+                                        className: "h-9 w-fit rounded-xl text-xs gap-1.5 bg-white border-slate-200"
+                                    })}
+                                >
+                                    <ExternalLink className="h-3.5 w-3.5 text-blue-600" />
+                                    <span>Visualizar em tamanho real</span>
+                                </a>
+                            )}
+
+                            <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-100/80 transition-colors text-xs font-semibold text-slate-700 w-fit">
+                                <Camera className="h-4 w-4 text-slate-500" />
+                                <span>{evidenciaUrl ? "Substituir foto" : "Anexar foto do comprovante"}</span>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+                                />
+                            </label>
+                            <span className="text-[10px] text-slate-400">A imagem será comprimida automaticamente antes de salvar.</span>
+                        </div>
                     </div>
                 </div>
 
