@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useCompany } from "@/contexts/company-context"
 import { createClient } from "@/lib/supabase/client"
+import { compressImage } from "@/lib/utils/image-compressor"
 import { Button, buttonVariants } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -29,7 +30,7 @@ import {
     CommandItem,
     CommandList,
 } from "@/components/ui/command"
-import { ArrowLeft, Save, Loader2, Check, ChevronsUpDown } from "lucide-react"
+import { ArrowLeft, Save, Loader2, Check, ChevronsUpDown, Camera, X, Paperclip } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export default function NovoAbastecimentoPage() {
@@ -44,6 +45,12 @@ export default function NovoAbastecimentoPage() {
     // Estados para controle de abertura dos Popovers com busca
     const [openVehiclePopover, setOpenVehiclePopover] = useState(false)
     const [openDriverPopover, setOpenDriverPopover] = useState(false)
+
+    // Estado do Anexo / Comprovante
+    const [comprovante, setComprovante] = useState<{ file: File | null; preview: string | null }>({
+        file: null,
+        preview: null,
+    })
 
     const [formData, setFormData] = useState({
         vehicle_id: "",
@@ -95,14 +102,47 @@ export default function NovoAbastecimentoPage() {
         loadOptions()
     }, [selectedCompany])
 
-    // Arredonda para 3 casas decimais para respeitar a coluna valor_por_litro numeric(6, 3)
+    // Gerenciamento do arquivo de comprovante
+    const handleFileChange = (file: File | null) => {
+        if (!file) return
+        const previewUrl = URL.createObjectURL(file)
+        setComprovante({ file, preview: previewUrl })
+    }
+
+    const removeComprovante = () => {
+        setComprovante({ file: null, preview: null })
+    }
+
+    // Compressão máxima e upload para o bucket "comprovantes"
+    const uploadAndCompressComprovante = async (file: File, companyId: string, placa: string) => {
+        // Redimensiona para max 1024px e qualidade 0.65 para economizar espaço
+        const compressedBlob = await compressImage(file, 1024, 0.65)
+        const fileExt = file.name.split('.').pop() || 'jpg'
+        const fileName = `${companyId}/${placa.toUpperCase()}/${Date.now()}_comprovante.${fileExt}`
+
+        const { error } = await supabase.storage
+            .from("comprovantes")
+            .upload(fileName, compressedBlob, {
+                contentType: file.type || "image/jpeg",
+                upsert: true,
+            })
+
+        if (error) throw error
+
+        const { data: publicUrlData } = supabase.storage
+            .from("comprovantes")
+            .getPublicUrl(fileName)
+
+        return publicUrlData.publicUrl
+    }
+
     const handleLitrosTotalChange = (litrosVal: string, totalVal: string) => {
         const l = parseFloat(litrosVal)
         const t = parseFloat(totalVal)
 
         let pricePerLiter = formData.valor_por_litro
         if (!isNaN(l) && !isNaN(t) && l > 0) {
-            pricePerLiter = (t / l).toFixed(3) // 3 casas decimais conforme numeric(6, 3)
+            pricePerLiter = (t / l).toFixed(3)
         }
 
         setFormData((prev) => ({
@@ -147,8 +187,7 @@ export default function NovoAbastecimentoPage() {
             const litros = Number(formData.litros)
             const valorTotal = Number(formData.valor_total)
 
-            // Arredondamentos alinhados com o DDL
-            const valorPorLitro = Number(Number(formData.valor_por_litro).toFixed(3)) // numeric(6, 3)
+            const valorPorLitro = Number(Number(formData.valor_por_litro).toFixed(3))
 
             let kmDesdeUltimo: number | null = null
             let consumoKml: number | null = null
@@ -158,12 +197,21 @@ export default function NovoAbastecimentoPage() {
                 kmDesdeUltimo = kmAtual - kmAnterior
                 const calculatedConsumo = kmDesdeUltimo / litros
 
-                // Trava de segurança para não ultrapassar numeric(5, 2) -> máx 999.99
                 consumoKml = calculatedConsumo > 999.99 ? 999.99 : Number(calculatedConsumo.toFixed(2))
 
                 if (selectedVehicle?.meta_kml && consumoKml < Number(selectedVehicle.meta_kml) * 0.75) {
                     alerta = true
                 }
+            }
+
+            // Realiza a compressão e o upload caso um comprovante tenha sido selecionado
+            let evidenciaUrl: string | null = null
+            if (comprovante.file) {
+                evidenciaUrl = await uploadAndCompressComprovante(
+                    comprovante.file,
+                    targetCompanyId,
+                    selectedVehicle.placa
+                )
             }
 
             const payload = {
@@ -172,16 +220,17 @@ export default function NovoAbastecimentoPage() {
                 driver_id: formData.driver_id || null,
                 data: new Date(formData.data).toISOString(),
                 km_odometro: kmAtual,
-                litros: Number(litros.toFixed(2)),         // numeric(8, 2)
-                valor_total: Number(valorTotal.toFixed(2)), // numeric(10, 2)
-                valor_por_litro: valorPorLitro,             // numeric(6, 3)
+                litros: Number(litros.toFixed(2)),
+                valor_total: Number(valorTotal.toFixed(2)),
+                valor_por_litro: valorPorLitro,
                 combustivel: formData.combustivel.toLowerCase(),
                 posto_fornecedor: formData.posto_fornecedor,
                 forma_pagamento: formData.forma_pagamento,
                 nota_fiscal_ref: formData.nota_fiscal_ref || null,
                 km_desde_ultimo: kmDesdeUltimo,
-                consumo_kml: consumoKml,                    // numeric(5, 2)
+                consumo_kml: consumoKml,
                 alerta,
+                evidencia_link: evidenciaUrl,
                 observacoes: formData.observacoes || null,
             }
 
@@ -431,7 +480,7 @@ export default function NovoAbastecimentoPage() {
                 </div>
 
                 <div className="space-y-4 pt-2">
-                    <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">Fornecedor & Documentação</h2>
+                    <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">Fornecedor & Comprovante</h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
@@ -453,6 +502,46 @@ export default function NovoAbastecimentoPage() {
                                 onChange={(e) => setFormData({ ...formData, nota_fiscal_ref: e.target.value })}
                                 className="h-10 rounded-xl border-slate-200"
                             />
+                        </div>
+                    </div>
+
+                    {/* Upload de Foto do Comprovante/Cupom */}
+                    <div className="space-y-1.5">
+                        <Label className="text-xs font-medium text-slate-700">Foto do Cupom / Comprovante (Opcional)</Label>
+                        <div className="relative border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100/80 transition-colors p-4 flex flex-col items-center justify-center min-h-[120px]">
+                            {comprovante.preview ? (
+                                <div className="relative w-full max-w-xs flex flex-col items-center">
+                                    <img
+                                        src={comprovante.preview}
+                                        alt="Comprovante"
+                                        className="h-32 object-contain rounded-lg border border-slate-200 bg-white shadow-xs"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={removeComprovante}
+                                        className="absolute -top-2 -right-2 h-7 w-7 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-rose-600 transition-colors shadow-sm"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                    <span className="text-[10px] text-slate-500 mt-2 font-medium truncate max-w-full">
+                                        {comprovante.file?.name}
+                                    </span>
+                                </div>
+                            ) : (
+                                <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full text-center">
+                                    <div className="h-9 w-9 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-1.5">
+                                        <Camera className="h-5 w-5" />
+                                    </div>
+                                    <span className="text-xs font-semibold text-slate-700">Anexar Cupom ou Comprovante</span>
+                                    <span className="text-[10px] text-slate-400 mt-0.5">Tire uma foto ou selecione uma imagem (JPG, PNG)</span>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+                                    />
+                                </label>
+                            )}
                         </div>
                     </div>
 
