@@ -16,7 +16,21 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { ArrowLeft, Save, Loader2 } from "lucide-react"
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command"
+import { ArrowLeft, Save, Loader2, Check, ChevronsUpDown } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export default function NovoAbastecimentoPage() {
     const { selectedCompany } = useCompany()
@@ -27,6 +41,10 @@ export default function NovoAbastecimentoPage() {
     const [vehicles, setVehicles] = useState<any[]>([])
     const [drivers, setDrivers] = useState<any[]>([])
 
+    // Estados para controle de abertura dos Popovers com busca
+    const [openVehiclePopover, setOpenVehiclePopover] = useState(false)
+    const [openDriverPopover, setOpenDriverPopover] = useState(false)
+
     const [formData, setFormData] = useState({
         vehicle_id: "",
         driver_id: "",
@@ -35,7 +53,7 @@ export default function NovoAbastecimentoPage() {
         litros: "",
         valor_total: "",
         valor_por_litro: "",
-        combustivel: "diesel",
+        combustivel: "DIESEL",
         posto_fornecedor: "",
         forma_pagamento: "faturado",
         nota_fiscal_ref: "",
@@ -48,24 +66,27 @@ export default function NovoAbastecimentoPage() {
         async function loadOptions() {
             if (!selectedCompany) return
             try {
-                // 1. Veículos
-                const vehRes = await supabase
+                // 1. Veículos (Busca todos se for "all", ou filtra por empresa)
+                let vehQuery = supabase
                     .from("vehicles")
-                    .select("id, placa, marca, modelo, km_atual, combustivel, meta_kml")
-                    .eq("company_id", selectedCompany.id)
+                    .select("id, placa, marca, modelo, km_atual, combustivel, meta_kml, company_id")
 
-                // 2. Motoristas (ajustado para nome_completo)
-                let drvRes = await supabase
-                    .from("drivers")
-                    .select("id, nome_completo")
-                    .eq("company_id", selectedCompany.id)
-
-                if (!drvRes.data || drvRes.data.length === 0) {
-                    const fallbackDrv = await supabase
-                        .from("drivers")
-                        .select("id, nome_completo")
-                    drvRes = fallbackDrv
+                if (selectedCompany.id !== "all") {
+                    vehQuery = vehQuery.eq("company_id", selectedCompany.id)
                 }
+
+                const vehRes = await vehQuery
+
+                // 2. Motoristas
+                let drvQuery = supabase
+                    .from("drivers")
+                    .select("id, nome_completo, company_id")
+
+                if (selectedCompany.id !== "all") {
+                    drvQuery = drvQuery.eq("company_id", selectedCompany.id)
+                }
+
+                const drvRes = await drvQuery
 
                 setVehicles(vehRes.data || [])
                 setDrivers(drvRes.data || [])
@@ -76,14 +97,13 @@ export default function NovoAbastecimentoPage() {
         loadOptions()
     }, [selectedCompany])
 
-    // Auto-calcula Valor por Litro se Litros e Valor Total forem preenchidos
     const handleLitrosTotalChange = (litrosVal: string, totalVal: string) => {
         const l = parseFloat(litrosVal)
         const t = parseFloat(totalVal)
 
         let pricePerLiter = formData.valor_por_litro
         if (!isNaN(l) && !isNaN(t) && l > 0) {
-            pricePerLiter = (t / l).toFixed(3)
+            pricePerLiter = (t / l).toFixed(2)
         }
 
         setFormData((prev) => ({
@@ -94,29 +114,40 @@ export default function NovoAbastecimentoPage() {
         }))
     }
 
-    const handleVehicleSelect = (vId: string | null) => {
-        if (!vId) return
+    const handleVehicleSelect = (vId: string) => {
         const veh = vehicles.find((v) => v.id === vId)
         setSelectedVehicle(veh || null)
         setFormData((prev) => ({
             ...prev,
             vehicle_id: vId,
             km_odometro: veh ? String(veh.km_atual) : "",
-            combustivel: veh?.combustivel || "diesel",
+            combustivel: veh?.combustivel || "DIESEL",
         }))
+        setOpenVehiclePopover(false)
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!selectedCompany) return
+
+        if (!selectedVehicle) {
+            alert("Selecione um veículo válido antes de prosseguir.")
+            return
+        }
+
+        const targetCompanyId = selectedCompany?.id === "all" ? selectedVehicle.company_id : selectedCompany?.id
+
+        if (!targetCompanyId) {
+            alert("Não foi possível identificar a empresa do veículo.")
+            return
+        }
 
         setSubmitting(true)
         try {
             const kmAtual = Number(formData.km_odometro)
-            const kmAnterior = selectedVehicle ? Number(selectedVehicle.km_atual) : 0
+            const kmAnterior = Number(selectedVehicle.km_atual || 0)
             const litros = Number(formData.litros)
             const valorTotal = Number(formData.valor_total)
-            const valorPorLitro = Number(formData.valor_por_litro)
+            const valorPorLitro = Number(Number(formData.valor_por_litro).toFixed(2))
 
             let kmDesdeUltimo: number | null = null
             let consumoKml: number | null = null
@@ -126,20 +157,19 @@ export default function NovoAbastecimentoPage() {
                 kmDesdeUltimo = kmAtual - kmAnterior
                 consumoKml = Number((kmDesdeUltimo / litros).toFixed(2))
 
-                // Dispara alerta se o consumo for 25% abaixo da meta
                 if (selectedVehicle?.meta_kml && consumoKml < Number(selectedVehicle.meta_kml) * 0.75) {
                     alerta = true
                 }
             }
 
             const payload = {
-                company_id: selectedCompany.id,
+                company_id: targetCompanyId,
                 vehicle_id: formData.vehicle_id,
                 driver_id: formData.driver_id || null,
                 data: new Date(formData.data).toISOString(),
                 km_odometro: kmAtual,
-                litros,
-                valor_total: valorTotal,
+                litros: Number(litros.toFixed(2)),
+                valor_total: Number(valorTotal.toFixed(2)),
                 valor_por_litro: valorPorLitro,
                 combustivel: formData.combustivel,
                 posto_fornecedor: formData.posto_fornecedor,
@@ -151,11 +181,9 @@ export default function NovoAbastecimentoPage() {
                 observacoes: formData.observacoes || null,
             }
 
-            // 1. Salva o registro de abastecimento
             const { error } = await supabase.from("fuel_records").insert([payload as any])
             if (error) throw error
 
-            // 2. Atualiza o KM atual do veículo
             if (kmAtual > kmAnterior) {
                 await supabase
                     .from("vehicles")
@@ -196,46 +224,106 @@ export default function NovoAbastecimentoPage() {
                     <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">Veículo e Motorista</h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-1.5">
+                        {/* Pesquisa de Veículo com Autocomplete */}
+                        <div className="space-y-1.5 flex flex-col">
                             <Label className="text-xs font-medium text-slate-700">Veículo *</Label>
-                            <Select
-                                value={formData.vehicle_id}
-                                onValueChange={(val) => handleVehicleSelect(val)}
-                                required
-                            >
-                                <SelectTrigger className="h-10 rounded-xl border-slate-200">
-                                    <SelectValue placeholder="Selecione um veículo">
-                                        {currentVehicleObj
-                                            ? `${currentVehicleObj.placa} - ${currentVehicleObj.marca} ${currentVehicleObj.modelo}`
-                                            : undefined}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {vehicles.map((v) => (
-                                        <SelectItem key={v.id} value={v.id}>
-                                            <span>{v.placa} - {v.marca} {v.modelo}</span>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Popover open={openVehiclePopover} onOpenChange={setOpenVehiclePopover}>
+                                <PopoverTrigger className="h-10 w-full flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-xs font-normal text-slate-900 hover:bg-slate-50 transition-colors">
+                                    {currentVehicleObj ? (
+                                        <span className="truncate">
+                                            {currentVehicleObj.placa} - {currentVehicleObj.marca} {currentVehicleObj.modelo}
+                                        </span>
+                                    ) : (
+                                        <span className="text-slate-400">Buscar por placa ou modelo...</span>
+                                    )}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[320px] sm:w-[380px] p-0 rounded-xl border border-slate-200 bg-white shadow-xl z-50" align="start">
+                                    <Command className="bg-white rounded-xl">
+                                        <CommandInput placeholder="Digite a placa, marca ou modelo..." className="h-9 text-xs" />
+                                        <CommandList className="max-h-[220px] overflow-y-auto p-1">
+                                            <CommandEmpty className="py-3 text-center text-xs text-slate-500">
+                                                Nenhum veículo encontrado.
+                                            </CommandEmpty>
+                                            <CommandGroup>
+                                                {vehicles.map((v) => (
+                                                    <CommandItem
+                                                        key={v.id}
+                                                        value={`${v.placa} ${v.marca} ${v.modelo}`}
+                                                        onSelect={() => handleVehicleSelect(v.id)}
+                                                        className="text-xs rounded-lg cursor-pointer py-2 px-2 hover:bg-slate-100"
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "mr-2 h-3.5 w-3.5 text-blue-600",
+                                                                formData.vehicle_id === v.id ? "opacity-100" : "opacity-0"
+                                                            )}
+                                                        />
+                                                        <span className="font-semibold text-slate-900 mr-1.5">{v.placa}</span>
+                                                        <span className="text-slate-500 truncate">{v.marca} {v.modelo}</span>
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                         </div>
 
-                        <div className="space-y-1.5">
+                        {/* Pesquisa de Motorista com Autocomplete */}
+                        <div className="space-y-1.5 flex flex-col">
                             <Label className="text-xs font-medium text-slate-700">Motorista (Opcional)</Label>
-                            <Select value={formData.driver_id} onValueChange={(val) => setFormData({ ...formData, driver_id: val || "" })}>
-                                <SelectTrigger className="h-10 rounded-xl border-slate-200">
-                                    <SelectValue placeholder="Selecione o motorista">
-                                        {currentDriverObj?.nome_completo}
-                                    </SelectValue>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {drivers.map((d) => (
-                                        <SelectItem key={d.id} value={d.id}>
-                                            <span>{d.nome_completo}</span>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <Popover open={openDriverPopover} onOpenChange={setOpenDriverPopover}>
+                                <PopoverTrigger className="h-10 w-full flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-xs font-normal text-slate-900 hover:bg-slate-50 transition-colors">
+                                    {currentDriverObj ? (
+                                        <span className="truncate">{currentDriverObj.nome_completo}</span>
+                                    ) : (
+                                        <span className="text-slate-400">Buscar motorista por nome...</span>
+                                    )}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[300px] sm:w-[350px] p-0 rounded-xl border border-slate-200 bg-white shadow-xl z-50" align="start">
+                                    <Command className="bg-white rounded-xl">
+                                        <CommandInput placeholder="Digite o nome do motorista..." className="h-9 text-xs" />
+                                        <CommandList className="max-h-[220px] overflow-y-auto p-1">
+                                            <CommandEmpty className="py-3 text-center text-xs text-slate-500">
+                                                Nenhum motorista encontrado.
+                                            </CommandEmpty>
+                                            <CommandGroup>
+                                                <CommandItem
+                                                    value="nenhum_motorista"
+                                                    onSelect={() => {
+                                                        setFormData((prev) => ({ ...prev, driver_id: "" }))
+                                                        setOpenDriverPopover(false)
+                                                    }}
+                                                    className="text-xs rounded-lg cursor-pointer py-2 px-2 text-slate-400 italic hover:bg-slate-100"
+                                                >
+                                                    Nenhum / Não informado
+                                                </CommandItem>
+                                                {drivers.map((d) => (
+                                                    <CommandItem
+                                                        key={d.id}
+                                                        value={d.nome_completo}
+                                                        onSelect={() => {
+                                                            setFormData((prev) => ({ ...prev, driver_id: d.id }))
+                                                            setOpenDriverPopover(false)
+                                                        }}
+                                                        className="text-xs rounded-lg cursor-pointer py-2 px-2 hover:bg-slate-100"
+                                                    >
+                                                        <Check
+                                                            className={cn(
+                                                                "mr-2 h-3.5 w-3.5 text-blue-600",
+                                                                formData.driver_id === d.id ? "opacity-100" : "opacity-0"
+                                                            )}
+                                                        />
+                                                        <span className="text-slate-800 font-medium">{d.nome_completo}</span>
+                                                    </CommandItem>
+                                                ))}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                         </div>
                     </div>
 
@@ -299,7 +387,7 @@ export default function NovoAbastecimentoPage() {
                             <Label className="text-xs font-medium text-slate-700">Preço por Litro (R$)</Label>
                             <Input
                                 type="number"
-                                step="0.001"
+                                step="0.01"
                                 value={formData.valor_por_litro}
                                 onChange={(e) => setFormData({ ...formData, valor_por_litro: e.target.value })}
                                 className="h-10 rounded-xl border-slate-200 bg-slate-50"
@@ -311,15 +399,15 @@ export default function NovoAbastecimentoPage() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Combustível *</Label>
-                            <Select value={formData.combustivel} onValueChange={(val) => setFormData({ ...formData, combustivel: val || "diesel" })}>
+                            <Select value={formData.combustivel} onValueChange={(val) => setFormData({ ...formData, combustivel: val || "DIESEL" })}>
                                 <SelectTrigger className="h-10 rounded-xl border-slate-200"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="diesel">Diesel</SelectItem>
-                                    <SelectItem value="gasolina">Gasolina</SelectItem>
-                                    <SelectItem value="etanol">Etanol</SelectItem>
-                                    <SelectItem value="flex">Flex</SelectItem>
-                                    <SelectItem value="gnv">GNV</SelectItem>
-                                    <SelectItem value="eletrico">Elétrico</SelectItem>
+                                <SelectContent className="rounded-xl border-slate-200 bg-white">
+                                    <SelectItem value="DIESEL">Diesel</SelectItem>
+                                    <SelectItem value="GASOLINA">Gasolina</SelectItem>
+                                    <SelectItem value="ETANOL">Etanol</SelectItem>
+                                    <SelectItem value="FLEX">Flex</SelectItem>
+                                    <SelectItem value="GNV">GNV</SelectItem>
+                                    <SelectItem value="ELETRICO">Elétrico</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -328,7 +416,7 @@ export default function NovoAbastecimentoPage() {
                             <Label className="text-xs font-medium text-slate-700">Forma de Pagamento *</Label>
                             <Select value={formData.forma_pagamento} onValueChange={(val) => setFormData({ ...formData, forma_pagamento: val || "faturado" })}>
                                 <SelectTrigger className="h-10 rounded-xl border-slate-200"><SelectValue /></SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="rounded-xl border-slate-200 bg-white">
                                     <SelectItem value="faturado">Faturado / Cartão Frota</SelectItem>
                                     <SelectItem value="dinheiro">Dinheiro</SelectItem>
                                     <SelectItem value="cartao_credito">Cartão de Crédito</SelectItem>
