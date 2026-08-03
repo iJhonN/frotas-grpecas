@@ -66,7 +66,6 @@ export default function NovoAbastecimentoPage() {
         async function loadOptions() {
             if (!selectedCompany) return
             try {
-                // 1. Veículos (Busca todos se for "all", ou filtra por empresa)
                 let vehQuery = supabase
                     .from("vehicles")
                     .select("id, placa, marca, modelo, km_atual, combustivel, meta_kml, company_id")
@@ -77,7 +76,6 @@ export default function NovoAbastecimentoPage() {
 
                 const vehRes = await vehQuery
 
-                // 2. Motoristas
                 let drvQuery = supabase
                     .from("drivers")
                     .select("id, nome_completo, company_id")
@@ -97,13 +95,14 @@ export default function NovoAbastecimentoPage() {
         loadOptions()
     }, [selectedCompany])
 
+    // Arredonda para 3 casas decimais para respeitar a coluna valor_por_litro numeric(6, 3)
     const handleLitrosTotalChange = (litrosVal: string, totalVal: string) => {
         const l = parseFloat(litrosVal)
         const t = parseFloat(totalVal)
 
         let pricePerLiter = formData.valor_por_litro
         if (!isNaN(l) && !isNaN(t) && l > 0) {
-            pricePerLiter = (t / l).toFixed(2)
+            pricePerLiter = (t / l).toFixed(3) // 3 casas decimais conforme numeric(6, 3)
         }
 
         setFormData((prev) => ({
@@ -147,7 +146,9 @@ export default function NovoAbastecimentoPage() {
             const kmAnterior = Number(selectedVehicle.km_atual || 0)
             const litros = Number(formData.litros)
             const valorTotal = Number(formData.valor_total)
-            const valorPorLitro = Number(Number(formData.valor_por_litro).toFixed(2))
+
+            // Arredondamentos alinhados com o DDL
+            const valorPorLitro = Number(Number(formData.valor_por_litro).toFixed(3)) // numeric(6, 3)
 
             let kmDesdeUltimo: number | null = null
             let consumoKml: number | null = null
@@ -155,7 +156,10 @@ export default function NovoAbastecimentoPage() {
 
             if (kmAtual > kmAnterior && litros > 0) {
                 kmDesdeUltimo = kmAtual - kmAnterior
-                consumoKml = Number((kmDesdeUltimo / litros).toFixed(2))
+                const calculatedConsumo = kmDesdeUltimo / litros
+
+                // Trava de segurança para não ultrapassar numeric(5, 2) -> máx 999.99
+                consumoKml = calculatedConsumo > 999.99 ? 999.99 : Number(calculatedConsumo.toFixed(2))
 
                 if (selectedVehicle?.meta_kml && consumoKml < Number(selectedVehicle.meta_kml) * 0.75) {
                     alerta = true
@@ -168,15 +172,15 @@ export default function NovoAbastecimentoPage() {
                 driver_id: formData.driver_id || null,
                 data: new Date(formData.data).toISOString(),
                 km_odometro: kmAtual,
-                litros: Number(litros.toFixed(2)),
-                valor_total: Number(valorTotal.toFixed(2)),
-                valor_por_litro: valorPorLitro,
-                combustivel: formData.combustivel.toLowerCase(), // Garante minúsculo para a tabela fuel_records
+                litros: Number(litros.toFixed(2)),         // numeric(8, 2)
+                valor_total: Number(valorTotal.toFixed(2)), // numeric(10, 2)
+                valor_por_litro: valorPorLitro,             // numeric(6, 3)
+                combustivel: formData.combustivel.toLowerCase(),
                 posto_fornecedor: formData.posto_fornecedor,
                 forma_pagamento: formData.forma_pagamento,
                 nota_fiscal_ref: formData.nota_fiscal_ref || null,
                 km_desde_ultimo: kmDesdeUltimo,
-                consumo_kml: consumoKml,
+                consumo_kml: consumoKml,                    // numeric(5, 2)
                 alerta,
                 observacoes: formData.observacoes || null,
             }
@@ -224,7 +228,6 @@ export default function NovoAbastecimentoPage() {
                     <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">Veículo e Motorista</h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Pesquisa de Veículo com Autocomplete */}
                         <div className="space-y-1.5 flex flex-col">
                             <Label className="text-xs font-medium text-slate-700">Veículo *</Label>
                             <Popover open={openVehiclePopover} onOpenChange={setOpenVehiclePopover}>
@@ -270,7 +273,6 @@ export default function NovoAbastecimentoPage() {
                             </Popover>
                         </div>
 
-                        {/* Pesquisa de Motorista com Autocomplete */}
                         <div className="space-y-1.5 flex flex-col">
                             <Label className="text-xs font-medium text-slate-700">Motorista (Opcional)</Label>
                             <Popover open={openDriverPopover} onOpenChange={setOpenDriverPopover}>
@@ -387,7 +389,7 @@ export default function NovoAbastecimentoPage() {
                             <Label className="text-xs font-medium text-slate-700">Preço por Litro (R$)</Label>
                             <Input
                                 type="number"
-                                step="0.01"
+                                step="0.001"
                                 value={formData.valor_por_litro}
                                 onChange={(e) => setFormData({ ...formData, valor_por_litro: e.target.value })}
                                 className="h-10 rounded-xl border-slate-200 bg-slate-50"
