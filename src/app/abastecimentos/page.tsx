@@ -123,9 +123,16 @@ export default function AbastecimentosPage() {
     // Totais e Cálculos Consolidados
     const totalValor = filteredRecords.reduce((acc, r) => acc + Number(r.valor_total || 0), 0)
     const totalLitros = filteredRecords.reduce((acc, r) => acc + Number(r.litros || 0), 0)
-    const registrosComKml = filteredRecords.filter((r) => r.consumo_kml)
-    const mediaKmlGeral = registrosComKml.length > 0
-        ? (registrosComKml.reduce((acc, r) => acc + Number(r.consumo_kml), 0) / registrosComKml.length).toFixed(2)
+
+    // Cálculo Ponderado Real do KM/L Geral (evita distorções de números discrepantes)
+    const registrosValidosComKm = filteredRecords.filter(
+        (r) => r.km_desde_ultimo && Number(r.km_desde_ultimo) > 0 && Number(r.litros) > 0
+    )
+    const totalKmRodados = registrosValidosComKm.reduce((acc, r) => acc + Number(r.km_desde_ultimo), 0)
+    const totalLitrosDosKms = registrosValidosComKm.reduce((acc, r) => acc + Number(r.litros), 0)
+
+    const mediaKmlGeral = totalLitrosDosKms > 0
+        ? (totalKmRodados / totalLitrosDosKms).toFixed(2)
         : null
 
     const clearDateFilters = () => {
@@ -207,25 +214,25 @@ export default function AbastecimentosPage() {
 
             {/* Barra de Filtros Integrada */}
             <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
                     {/* Busca Rápida */}
-                    <div className="relative lg:col-span-2">
+                    <div className="relative flex-1 min-w-[220px]">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
                             placeholder="Buscar por placa, motorista ou posto..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
-                            className="pl-9 h-10 border-slate-200 rounded-xl text-xs"
+                            className="pl-9 h-10 border-slate-200 rounded-xl text-xs w-full"
                         />
                     </div>
 
-                    {/* Filtro por Empresa */}
-                    <div>
+                    {/* Filtro por Empresa (Largura flexível com min-w para não cortar) */}
+                    <div className="min-w-[180px] max-w-[260px]">
                         <Select value={companyFilter} onValueChange={(val) => setCompanyFilter(val || "all")}>
-                            <SelectTrigger className="h-10 rounded-xl border-slate-200 text-xs">
+                            <SelectTrigger className="h-10 rounded-xl border-slate-200 text-xs w-full px-3 pr-8 truncate">
                                 <SelectValue placeholder="Selecione a empresa" />
                             </SelectTrigger>
-                            <SelectContent className="rounded-xl border-slate-200 bg-white">
+                            <SelectContent className="rounded-xl border-slate-200 bg-white min-w-[200px]">
                                 <SelectItem value="all">Todas as Empresas</SelectItem>
                                 {companies.map((c) => (
                                     <SelectItem key={c.id} value={c.id}>
@@ -237,22 +244,22 @@ export default function AbastecimentosPage() {
                     </div>
 
                     {/* Data Inicial */}
-                    <div className="relative">
+                    <div className="w-full lg:w-40">
                         <Input
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="h-10 border-slate-200 rounded-xl text-xs"
+                            className="h-10 border-slate-200 rounded-xl text-xs w-full"
                         />
                     </div>
 
                     {/* Data Final */}
-                    <div className="relative">
+                    <div className="w-full lg:w-40">
                         <Input
                             type="date"
                             value={endDate}
                             onChange={(e) => setStartDateEnd(e.target.value)}
-                            className="h-10 border-slate-200 rounded-xl text-xs"
+                            className="h-10 border-slate-200 rounded-xl text-xs w-full"
                         />
                     </div>
                 </div>
