@@ -44,6 +44,8 @@ export default function AbastecimentosPage() {
     useEffect(() => {
         if (selectedCompany?.id) {
             setCompanyFilter(selectedCompany.id)
+        } else {
+            setCompanyFilter("all")
         }
     }, [selectedCompany])
 
@@ -219,7 +221,7 @@ export default function AbastecimentosPage() {
 
                     {/* Filtro por Empresa */}
                     <div>
-                        <Select value={companyFilter} onValueChange={(val) => setCompanyFilter(val)}>
+                        <Select value={companyFilter} onValueChange={(val) => setCompanyFilter(val || "all")}>
                             <SelectTrigger className="h-10 rounded-xl border-slate-200 text-xs">
                                 <SelectValue placeholder="Selecione a empresa" />
                             </SelectTrigger>
