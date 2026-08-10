@@ -79,16 +79,14 @@ export default function AbastecimentosPage() {
                 query = query.eq("company_id", companyFilter)
             }
 
-            // Filtro por Data Inicial
+            // Filtro por Data Inicial (Início do dia UTC)
             if (startDate) {
-                query = query.gte("data", new Date(startDate).toISOString())
+                query = query.gte("data", `${startDate}T00:00:00.000Z`)
             }
 
-            // Filtro por Data Final
+            // Filtro por Data Final (Fim do dia UTC)
             if (endDate) {
-                const endDateTime = new Date(endDate)
-                endDateTime.setHours(23, 59, 59, 999)
-                query = query.lte("data", endDateTime.toISOString())
+                query = query.lte("data", `${endDate}T23:59:59.999Z`)
             }
 
             const { data, error } = await query.order("data", { ascending: false })
@@ -124,7 +122,7 @@ export default function AbastecimentosPage() {
     const totalValor = filteredRecords.reduce((acc, r) => acc + Number(r.valor_total || 0), 0)
     const totalLitros = filteredRecords.reduce((acc, r) => acc + Number(r.litros || 0), 0)
 
-    // Cálculo Ponderado Real do KM/L Geral (evita distorções de números discrepantes)
+    // Cálculo Ponderado Real do KM/L Geral
     const registrosValidosComKm = filteredRecords.filter(
         (r) => r.km_desde_ultimo && Number(r.km_desde_ultimo) > 0 && Number(r.litros) > 0
     )
@@ -226,7 +224,7 @@ export default function AbastecimentosPage() {
                         />
                     </div>
 
-                    {/* Filtro por Empresa (Largura flexível com min-w para não cortar) */}
+                    {/* Filtro por Empresa */}
                     <div className="min-w-[180px] max-w-[260px]">
                         <Select value={companyFilter} onValueChange={(val) => setCompanyFilter(val || "all")}>
                             <SelectTrigger className="h-10 rounded-xl border-slate-200 text-xs w-full px-3 pr-8 truncate">
@@ -270,7 +268,7 @@ export default function AbastecimentosPage() {
                         <span className="text-[11px] text-slate-500 font-medium">Filtro de Período Ativo:</span>
                         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-[10px] gap-1.5">
                             <Calendar className="h-3 w-3" />
-                            {startDate ? new Date(startDate).toLocaleDateString("pt-BR") : "Início"} até {endDate ? new Date(endDate).toLocaleDateString("pt-BR") : "Hoje"}
+                            {startDate ? new Date(`${startDate}T00:00:00.000Z`).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "Início"} até {endDate ? new Date(`${endDate}T00:00:00.000Z`).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "Hoje"}
                             <button onClick={clearDateFilters} className="hover:text-blue-900 ml-1">
                                 <X className="h-3 w-3" />
                             </button>
@@ -308,7 +306,8 @@ export default function AbastecimentosPage() {
                         </TableHeader>
                         <TableBody>
                             {filteredRecords.map((r) => {
-                                const dataFormatted = new Date(r.data).toLocaleDateString("pt-BR")
+                                // Força a exibição exata do dia UTC, evitando atraso de 1 dia pelo fuso horário
+                                const dataFormatted = new Date(r.data).toLocaleDateString("pt-BR", { timeZone: "UTC" })
                                 return (
                                     <TableRow
                                         key={r.id}

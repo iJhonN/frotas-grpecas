@@ -30,7 +30,7 @@ import {
     CommandItem,
     CommandList,
 } from "@/components/ui/command"
-import { ArrowLeft, Save, Loader2, Check, ChevronsUpDown, Camera, X, Paperclip } from "lucide-react"
+import { ArrowLeft, Save, Loader2, Check, ChevronsUpDown, Camera, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export default function NovoAbastecimentoPage() {
@@ -52,14 +52,19 @@ export default function NovoAbastecimentoPage() {
         preview: null,
     })
 
+    // Estados brutos de exibição mascarada (Formatados com vírgula)
+    const [litrosRaw, setLitrosRaw] = useState("0,00")
+    const [valorTotalRaw, setValorTotalRaw] = useState("0,00")
+    const [valorPorLitroRaw, setValorPorLitroRaw] = useState("0,000")
+
     const [formData, setFormData] = useState({
         vehicle_id: "",
         driver_id: "",
         data: new Date().toISOString().split("T")[0],
         km_odometro: "",
-        litros: "",
-        valor_total: "",
-        valor_por_litro: "",
+        litros: 0,
+        valor_total: 0,
+        valor_por_litro: 0,
         combustivel: "diesel",
         posto_fornecedor: "",
         forma_pagamento: "faturado",
@@ -68,6 +73,23 @@ export default function NovoAbastecimentoPage() {
     })
 
     const [selectedVehicle, setSelectedVehicle] = useState<any>(null)
+
+    // Auxiliares para formatação de moeda e decimais automáticos
+    const formatCurrencyInput = (value: string, decimals = 2) => {
+        const onlyDigits = value.replace(/\D/g, "")
+        if (!onlyDigits) return (0).toFixed(decimals).replace(".", ",")
+        const numberValue = Number(onlyDigits) / Math.pow(10, decimals)
+        return numberValue.toLocaleString("pt-BR", {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals,
+        })
+    }
+
+    const parseCurrencyValue = (formattedValue: string) => {
+        if (!formattedValue) return 0
+        const normalized = formattedValue.replace(/\./g, "").replace(",", ".")
+        return parseFloat(normalized) || 0
+    }
 
     useEffect(() => {
         async function loadOptions() {
@@ -102,6 +124,38 @@ export default function NovoAbastecimentoPage() {
         loadOptions()
     }, [selectedCompany])
 
+    // Recalcula o Valor por Litro de forma automática
+    const recalculatePricePerLiter = (litrosVal: number, totalVal: number) => {
+        if (litrosVal > 0 && totalVal > 0) {
+            const price = totalVal / litrosVal
+            setValorPorLitroRaw(price.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 }))
+            setFormData((prev) => ({ ...prev, valor_por_litro: Number(price.toFixed(3)) }))
+        }
+    }
+
+    const handleLitrosChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const formatted = formatCurrencyInput(e.target.value, 2)
+        const numeric = parseCurrencyValue(formatted)
+        setLitrosRaw(formatted)
+        setFormData((prev) => ({ ...prev, litros: numeric }))
+        recalculatePricePerLiter(numeric, formData.valor_total)
+    }
+
+    const handleValorTotalChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const formatted = formatCurrencyInput(e.target.value, 2)
+        const numeric = parseCurrencyValue(formatted)
+        setValorTotalRaw(formatted)
+        setFormData((prev) => ({ ...prev, valor_total: numeric }))
+        recalculatePricePerLiter(formData.litros, numeric)
+    }
+
+    const handleValorPorLitroChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const formatted = formatCurrencyInput(e.target.value, 3)
+        const numeric = parseCurrencyValue(formatted)
+        setValorPorLitroRaw(formatted)
+        setFormData((prev) => ({ ...prev, valor_por_litro: numeric }))
+    }
+
     // Gerenciamento do arquivo de comprovante
     const handleFileChange = (file: File | null) => {
         if (!file) return
@@ -115,7 +169,6 @@ export default function NovoAbastecimentoPage() {
 
     // Compressão máxima e upload para o bucket "comprovantes"
     const uploadAndCompressComprovante = async (file: File, companyId: string, placa: string) => {
-        // Redimensiona para max 1024px e qualidade 0.65 para economizar espaço
         const compressedBlob = await compressImage(file, 1024, 0.65)
         const fileExt = file.name.split('.').pop() || 'jpg'
         const fileName = `${companyId}/${placa.toUpperCase()}/${Date.now()}_comprovante.${fileExt}`
@@ -134,23 +187,6 @@ export default function NovoAbastecimentoPage() {
             .getPublicUrl(fileName)
 
         return publicUrlData.publicUrl
-    }
-
-    const handleLitrosTotalChange = (litrosVal: string, totalVal: string) => {
-        const l = parseFloat(litrosVal)
-        const t = parseFloat(totalVal)
-
-        let pricePerLiter = formData.valor_por_litro
-        if (!isNaN(l) && !isNaN(t) && l > 0) {
-            pricePerLiter = (t / l).toFixed(3)
-        }
-
-        setFormData((prev) => ({
-            ...prev,
-            litros: litrosVal,
-            valor_total: totalVal,
-            valor_por_litro: pricePerLiter,
-        }))
     }
 
     const handleVehicleSelect = (vId: string) => {
@@ -180,14 +216,18 @@ export default function NovoAbastecimentoPage() {
             return
         }
 
+        if (formData.litros <= 0 || formData.valor_total <= 0) {
+            alert("Informe a quantidade de litros e o valor total do abastecimento.")
+            return
+        }
+
         setSubmitting(true)
         try {
             const kmAtual = Number(formData.km_odometro)
             const kmAnterior = Number(selectedVehicle.km_atual || 0)
-            const litros = Number(formData.litros)
-            const valorTotal = Number(formData.valor_total)
-
-            const valorPorLitro = Number(Number(formData.valor_por_litro).toFixed(3))
+            const litros = formData.litros
+            const valorTotal = formData.valor_total
+            const valorPorLitro = Number(formData.valor_por_litro.toFixed(3))
 
             let kmDesdeUltimo: number | null = null
             let consumoKml: number | null = null
@@ -204,7 +244,6 @@ export default function NovoAbastecimentoPage() {
                 }
             }
 
-            // Realiza a compressão e o upload caso um comprovante tenha sido selecionado
             let evidenciaUrl: string | null = null
             if (comprovante.file) {
                 evidenciaUrl = await uploadAndCompressComprovante(
@@ -214,11 +253,14 @@ export default function NovoAbastecimentoPage() {
                 )
             }
 
+            // Fixa o horário no meio do dia (12:00:00 UTC) para evitar que o fuso horário subtraia 1 dia
+            const isoDateWithTime = `${formData.data}T12:00:00.000Z`
+
             const payload = {
                 company_id: targetCompanyId,
                 vehicle_id: formData.vehicle_id,
                 driver_id: formData.driver_id || null,
-                data: new Date(formData.data).toISOString(),
+                data: isoDateWithTime,
                 km_odometro: kmAtual,
                 litros: Number(litros.toFixed(2)),
                 valor_total: Number(valorTotal.toFixed(2)),
@@ -408,40 +450,44 @@ export default function NovoAbastecimentoPage() {
                     <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">Litros, Valores & Combustível</h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* Entrada Automática de Litros */}
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Quantidade (Litros) *</Label>
                             <Input
-                                type="number"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={formData.litros}
-                                onChange={(e) => handleLitrosTotalChange(e.target.value, formData.valor_total)}
-                                className="h-10 rounded-xl border-slate-200"
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="0,00"
+                                value={litrosRaw}
+                                onChange={handleLitrosChange}
+                                className="h-10 rounded-xl border-slate-200 font-medium"
                                 required
                             />
                         </div>
 
+                        {/* Entrada Automática de Valor Total */}
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Valor Total (R$) *</Label>
                             <Input
-                                type="number"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={formData.valor_total}
-                                onChange={(e) => handleLitrosTotalChange(formData.litros, e.target.value)}
-                                className="h-10 rounded-xl border-slate-200"
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="0,00"
+                                value={valorTotalRaw}
+                                onChange={handleValorTotalChange}
+                                className="h-10 rounded-xl border-slate-200 font-medium"
                                 required
                             />
                         </div>
 
+                        {/* Entrada Automática de Preço por Litro */}
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Preço por Litro (R$)</Label>
                             <Input
-                                type="number"
-                                step="0.001"
-                                value={formData.valor_por_litro}
-                                onChange={(e) => setFormData({ ...formData, valor_por_litro: e.target.value })}
-                                className="h-10 rounded-xl border-slate-200 bg-slate-50"
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="0,000"
+                                value={valorPorLitroRaw}
+                                onChange={handleValorPorLitroChange}
+                                className="h-10 rounded-xl border-slate-200 bg-slate-50 font-medium"
                                 required
                             />
                         </div>
