@@ -15,15 +15,27 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Search, Car, Loader2 } from "lucide-react"
+import { Plus, Search, Car, Loader2, X } from "lucide-react"
 
 export default function VeiculosPage() {
     const { selectedCompany } = useCompany()
     const router = useRouter()
     const [vehicles, setVehicles] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
+
+    // Filtros
     const [search, setSearch] = useState("")
+    const [rastreadorFilter, setRastreadorFilter] = useState("all")
+    const [tacografoFilter, setTacografoFilter] = useState("all")
+    const [statusFilter, setStatusFilter] = useState("all")
 
     const supabase = createClient()
 
@@ -35,7 +47,6 @@ export default function VeiculosPage() {
                 .from("vehicles")
                 .select("*")
 
-            // Aplica filtro de empresa apenas se NÃO for "Todas as Empresas"
             if (selectedCompany.id !== "all") {
                 query = query.eq("company_id", selectedCompany.id)
             }
@@ -55,16 +66,6 @@ export default function VeiculosPage() {
         fetchVehicles()
     }, [selectedCompany])
 
-    const filteredVehicles = vehicles.filter((v) => {
-        const termo = search.toLowerCase()
-        return (
-            (v.placa && v.placa.toLowerCase().includes(termo)) ||
-            (v.modelo && v.modelo.toLowerCase().includes(termo)) ||
-            (v.marca && v.marca.toLowerCase().includes(termo))
-        )
-    })
-
-    // Função utilitária para extrair os dados de observações (JSON)
     const getExtraInfo = (observacoes: string | null) => {
         if (!observacoes) return { rastreador: "nao_possui", tacografo: "nao_possui" }
         try {
@@ -78,8 +79,63 @@ export default function VeiculosPage() {
         }
     }
 
+    const filteredVehicles = vehicles.filter((v) => {
+        const termo = search.toLowerCase()
+        const matchesSearch = (
+            (v.placa && v.placa.toLowerCase().includes(termo)) ||
+            (v.modelo && v.modelo.toLowerCase().includes(termo)) ||
+            (v.marca && v.marca.toLowerCase().includes(termo))
+        )
+
+        const { rastreador, tacografo } = getExtraInfo(v.observacoes)
+
+        const matchesRastreador = rastreadorFilter === "all" || rastreador === rastreadorFilter
+        const matchesTacografo = tacografoFilter === "all" || tacografo === tacografoFilter
+        const matchesStatus = statusFilter === "all" || v.status === statusFilter
+
+        return matchesSearch && matchesRastreador && matchesTacografo && matchesStatus
+    })
+
+    const clearFilters = () => {
+        setSearch("")
+        setRastreadorFilter("all")
+        setTacografoFilter("all")
+        setStatusFilter("all")
+    }
+
+    const hasActiveFilters = search !== "" || rastreadorFilter !== "all" || tacografoFilter !== "all" || statusFilter !== "all"
+
+    // Rótulos explicativos para os triggers dos selects
+    const getRastreadorLabel = (val: string) => {
+        switch (val) {
+            case "online": return "Rastreador: Online"
+            case "offline": return "Rastreador: Offline"
+            case "nao_possui": return "Rastreador: Não possui"
+            default: return "Rastreador: Todos"
+        }
+    }
+
+    const getTacografoLabel = (val: string) => {
+        switch (val) {
+            case "em_dias": return "Tacógrafo: Em dia"
+            case "defeito": return "Tacógrafo: Com Defeito"
+            case "atrasado": return "Tacógrafo: Atrasado"
+            case "nao_possui": return "Tacógrafo: Não possui"
+            default: return "Tacógrafo: Todos"
+        }
+    }
+
+    const getStatusLabel = (val: string) => {
+        switch (val) {
+            case "ativo_disponivel": return "Status: Disponível"
+            case "em_manutencao": return "Status: Em Manutenção"
+            case "inativo": return "Status: Inativo"
+            default: return "Status: Todos"
+        }
+    }
+
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-12">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
@@ -92,26 +148,94 @@ export default function VeiculosPage() {
 
                 <Link
                     href="/veiculos/novo"
-                    className={buttonVariants({ className: "bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-10 px-4 font-medium shadow-sm gap-2 whitespace-nowrap" })}
+                    className={buttonVariants({ className: "bg-blue-600 hover:bg-blue-700 text-white rounded-xl h-10 px-4 font-medium shadow-sm gap-2 whitespace-nowrap self-start sm:self-auto" })}
                 >
                     <Plus className="h-4 w-4" />
                     <span>Novo Veículo</span>
                 </Link>
             </div>
 
-            <div className="flex items-center gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-                <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                    <Input
-                        placeholder="Buscar por placa, modelo ou marca..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="pl-9 h-10 border-slate-200 rounded-lg text-xs"
-                    />
+            {/* Barra de Busca e Filtros Avançados */}
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    {/* Busca Rápida */}
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                            placeholder="Buscar por placa, modelo ou marca..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="pl-9 h-10 border-slate-200 rounded-xl text-xs w-full"
+                        />
+                    </div>
+
+                    {/* Filtro de Rastreador */}
+                    <div>
+                        <Select value={rastreadorFilter} onValueChange={(val) => setRastreadorFilter(val || "all")}>
+                            <SelectTrigger className="h-10 rounded-xl border-slate-200 text-xs w-full bg-white">
+                                <SelectValue>{getRastreadorLabel(rastreadorFilter)}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-slate-200 bg-white">
+                                <SelectItem value="all">Rastreador: Todos</SelectItem>
+                                <SelectItem value="online">Online</SelectItem>
+                                <SelectItem value="offline">Offline</SelectItem>
+                                <SelectItem value="nao_possui">Não possui</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Filtro de Tacógrafo */}
+                    <div>
+                        <Select value={tacografoFilter} onValueChange={(val) => setTacografoFilter(val || "all")}>
+                            <SelectTrigger className="h-10 rounded-xl border-slate-200 text-xs w-full bg-white">
+                                <SelectValue>{getTacografoLabel(tacografoFilter)}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-slate-200 bg-white">
+                                <SelectItem value="all">Tacógrafo: Todos</SelectItem>
+                                <SelectItem value="em_dias">Em dia</SelectItem>
+                                <SelectItem value="defeito">Com Defeito</SelectItem>
+                                <SelectItem value="atrasado">Atrasado</SelectItem>
+                                <SelectItem value="nao_possui">Não possui</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Filtro de Status do Veículo */}
+                    <div>
+                        <Select value={statusFilter} onValueChange={(val) => setStatusFilter(val || "all")}>
+                            <SelectTrigger className="h-10 rounded-xl border-slate-200 text-xs w-full bg-white">
+                                <SelectValue>{getStatusLabel(statusFilter)}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-slate-200 bg-white">
+                                <SelectItem value="all">Status: Todos</SelectItem>
+                                <SelectItem value="ativo_disponivel">Disponível</SelectItem>
+                                <SelectItem value="em_manutencao">Em Manutenção</SelectItem>
+                                <SelectItem value="inativo">Inativo</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
+
+                {/* Botão de Limpar Filtros */}
+                {hasActiveFilters && (
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100">
+                        <span className="text-[11px] text-slate-500 font-medium">
+                            {filteredVehicles.length} veículo(s) encontrado(s)
+                        </span>
+                        <button
+                            type="button"
+                            onClick={clearFilters}
+                            className="inline-flex items-center gap-1 text-[11px] text-rose-600 font-medium hover:underline cursor-pointer"
+                        >
+                            <X className="h-3 w-3" />
+                            Limpar Filtros
+                        </button>
+                    </div>
+                )}
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 shadow-xs overflow-hidden">
+            {/* Tabela de Veículos */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
                 {loading ? (
                     <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-2">
                         <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
@@ -121,7 +245,9 @@ export default function VeiculosPage() {
                     <div className="p-12 flex flex-col items-center justify-center text-slate-400 gap-2">
                         <Car className="h-8 w-8 text-slate-300" />
                         <span className="text-sm font-medium text-slate-600">Nenhum veículo encontrado</span>
-                        <span className="text-xs text-slate-400">Cadastre um novo veículo para incluir na frota</span>
+                        <span className="text-xs text-slate-400">
+                            {hasActiveFilters ? "Tente ajustar os filtros selecionados" : "Cadastre um novo veículo para incluir na frota"}
+                        </span>
                     </div>
                 ) : (
                     <Table>
