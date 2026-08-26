@@ -50,7 +50,7 @@ export default function NovoDocumentoPage() {
 
     const [formData, setFormData] = useState({
         vehicle_id: "",
-        tipo_documento: "CRLV", // Atualizado para maiúsculo
+        tipo_documento: "crlv",
         ref_ano: currentYear.toString(),
         observacoes: "",
     })
@@ -126,14 +126,15 @@ export default function NovoDocumentoPage() {
 
         setSubmitting(true)
         try {
-            const isoVencimento = `${anoExercicioNum}-12-31T23:59:59.000Z`
+            // Formatação YYYY-MM-DD aceita diretamente pela coluna 'date' do Postgres
+            const dateOnlyVencimento = `${anoExercicioNum}-12-31`
 
             const payload = {
                 company_id: targetCompanyId,
                 vehicle_id: formData.vehicle_id,
-                tipo_documento: formData.tipo_documento.toUpperCase(), // Garante valor compatível com o enum
+                tipo_documento: formData.tipo_documento.toLowerCase(),
                 ref_ano: anoExercicioNum,
-                data_vencimento: isoVencimento,
+                data_vencimento: dateOnlyVencimento,
                 valor: null,
                 situacao: situacaoCalculada,
                 comprovante_ref: fileUrl || null,
@@ -175,6 +176,7 @@ export default function NovoDocumentoPage() {
                     <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">Identificação do Veículo & Documento</h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Veículo */}
                         <div className="space-y-1.5 flex flex-col">
                             <Label className="text-xs font-medium text-slate-700">Veículo *</Label>
                             <Popover open={openVehiclePopover} onOpenChange={setOpenVehiclePopover}>
@@ -220,22 +222,23 @@ export default function NovoDocumentoPage() {
                             </Popover>
                         </div>
 
-                        <div className="space-y-1.5">
+                        {/* Tipo de Documento Ajustado */}
+                        <div className="space-y-1.5 flex flex-col">
                             <Label className="text-xs font-medium text-slate-700">Tipo de Documento *</Label>
                             <Select
                                 value={formData.tipo_documento}
-                                onValueChange={(val) => setFormData({ ...formData, tipo_documento: val || "CRLV" })}
+                                onValueChange={(val) => setFormData({ ...formData, tipo_documento: val || "crlv" })}
                             >
-                                <SelectTrigger className="h-10 rounded-xl border-slate-200">
-                                    <SelectValue />
+                                <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-xs">
+                                    <SelectValue placeholder="Selecione o tipo de documento" />
                                 </SelectTrigger>
-                                <SelectContent className="rounded-xl border-slate-200 bg-white">
-                                    <SelectItem value="CRLV">CRLV Digital / Licenciamento</SelectItem>
-                                    <SelectItem value="IPVA">IPVA</SelectItem>
-                                    <SelectItem value="SEGURO_DPVAT">Seguro OBRIGATÓRIO / DPVAT</SelectItem>
-                                    <SelectItem value="SEGURO_APOLICE">Apólice de Seguro Privado</SelectItem>
-                                    <SelectItem value="TACOGRAFO">Laudo do Tacógrafo</SelectItem>
-                                    <SelectItem value="OUTRO">Outro / Licença Especial</SelectItem>
+                                <SelectContent className="rounded-xl border-slate-200 bg-white min-w-[280px]">
+                                    <SelectItem value="crlv">CRLV Digital / Licenciamento</SelectItem>
+                                    <SelectItem value="ipva">IPVA</SelectItem>
+                                    <SelectItem value="seguro_dpvat">Seguro OBRIGATÓRIO / DPVAT</SelectItem>
+                                    <SelectItem value="seguro_apolice">Apólice de Seguro Privado</SelectItem>
+                                    <SelectItem value="tacografo">Laudo do Tacógrafo</SelectItem>
+                                    <SelectItem value="outro">Outro / Licença Especial</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -252,7 +255,7 @@ export default function NovoDocumentoPage() {
                                 placeholder="2026"
                                 value={formData.ref_ano}
                                 onChange={(e) => setFormData({ ...formData, ref_ano: e.target.value })}
-                                className="h-10 rounded-xl border-slate-200 font-semibold"
+                                className="h-10 rounded-xl border-slate-200 font-semibold text-xs"
                                 required
                             />
                         </div>
@@ -262,12 +265,12 @@ export default function NovoDocumentoPage() {
                             <div className="h-10 rounded-xl border border-slate-200 bg-slate-50 flex items-center px-3.5 justify-between">
                                 <span className="text-xs font-medium text-slate-600">Situação Atual:</span>
                                 {isVencido ? (
-                                    <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 font-semibold gap-1">
+                                    <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 font-semibold gap-1 text-[11px]">
                                         <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
                                         Vencido / Atrasado
                                     </Badge>
                                 ) : (
-                                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold gap-1">
+                                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold gap-1 text-[11px]">
                                         <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
                                         Em dia / Válido
                                     </Badge>
