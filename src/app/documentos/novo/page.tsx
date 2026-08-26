@@ -48,10 +48,9 @@ export default function NovoDocumentoPage() {
     const [openVehiclePopover, setOpenVehiclePopover] = useState(false)
     const [selectedVehicle, setSelectedVehicle] = useState<any>(null)
 
-    // Tipo em caixa alta para coincidir com o enum doc_type do banco de dados
     const [formData, setFormData] = useState({
         vehicle_id: "",
-        tipo_documento: "CRLV",
+        tipo_documento: "crlv",
         ref_ano: currentYear.toString(),
         observacoes: "",
     })
@@ -132,7 +131,7 @@ export default function NovoDocumentoPage() {
             const payload = {
                 company_id: targetCompanyId,
                 vehicle_id: formData.vehicle_id,
-                tipo_documento: formData.tipo_documento.toUpperCase(), // Garante envio em caixa alta exigido pelo enum doc_type
+                tipo_documento: formData.tipo_documento.toLowerCase(), // Garante envio em minúsculas exigido pelo enum doc_type do Postgres
                 ref_ano: anoExercicioNum,
                 data_vencimento: dateOnlyVencimento,
                 valor: null,
@@ -222,23 +221,23 @@ export default function NovoDocumentoPage() {
                             </Popover>
                         </div>
 
-                        {/* Tipo de Documento com largura corrigida e valores em Caixa Alta */}
+                        {/* Tipo de Documento */}
                         <div className="space-y-1.5 flex flex-col">
                             <Label className="text-xs font-medium text-slate-700">Tipo de Documento *</Label>
                             <Select
                                 value={formData.tipo_documento}
-                                onValueChange={(val) => setFormData({ ...formData, tipo_documento: val || "CRLV" })}
+                                onValueChange={(val) => setFormData({ ...formData, tipo_documento: val || "crlv" })}
                             >
                                 <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-xs flex items-center justify-between">
-                                    <SelectValue placeholder="Selecione o tipo de documento" />
+                                    <SelectValue placeholder="Selecione o tipo" />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-slate-200 bg-white min-w-[280px]">
-                                    <SelectItem value="CRLV">CRLV Digital / Licenciamento</SelectItem>
-                                    <SelectItem value="IPVA">IPVA</SelectItem>
-                                    <SelectItem value="SEGURO_DPVAT">Seguro OBRIGATÓRIO / DPVAT</SelectItem>
-                                    <SelectItem value="SEGURO_APOLICE">Apólice de Seguro Privado</SelectItem>
-                                    <SelectItem value="TACOGRAFO">Laudo do Tacógrafo</SelectItem>
-                                    <SelectItem value="OUTRO">Outro / Licença Especial</SelectItem>
+                                    <SelectItem value="crlv">CRLV Digital / Licenciamento</SelectItem>
+                                    <SelectItem value="ipva">IPVA</SelectItem>
+                                    <SelectItem value="seguro_dpvat">Seguro OBRIGATÓRIO / DPVAT</SelectItem>
+                                    <SelectItem value="seguro_apolice">Apólice de Seguro Privado</SelectItem>
+                                    <SelectItem value="tacografo">Laudo do Tacógrafo</SelectItem>
+                                    <SelectItem value="outro">Outro / Licença Especial</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
