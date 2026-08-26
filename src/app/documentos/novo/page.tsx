@@ -48,9 +48,10 @@ export default function NovoDocumentoPage() {
     const [openVehiclePopover, setOpenVehiclePopover] = useState(false)
     const [selectedVehicle, setSelectedVehicle] = useState<any>(null)
 
+    // Tipo em caixa alta para coincidir com o enum doc_type do banco de dados
     const [formData, setFormData] = useState({
         vehicle_id: "",
-        tipo_documento: "crlv",
+        tipo_documento: "CRLV",
         ref_ano: currentYear.toString(),
         observacoes: "",
     })
@@ -126,13 +127,12 @@ export default function NovoDocumentoPage() {
 
         setSubmitting(true)
         try {
-            // Formatação YYYY-MM-DD aceita diretamente pela coluna 'date' do Postgres
             const dateOnlyVencimento = `${anoExercicioNum}-12-31`
 
             const payload = {
                 company_id: targetCompanyId,
                 vehicle_id: formData.vehicle_id,
-                tipo_documento: formData.tipo_documento.toLowerCase(),
+                tipo_documento: formData.tipo_documento.toUpperCase(), // Garante envio em caixa alta exigido pelo enum doc_type
                 ref_ano: anoExercicioNum,
                 data_vencimento: dateOnlyVencimento,
                 valor: null,
@@ -176,7 +176,7 @@ export default function NovoDocumentoPage() {
                     <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">Identificação do Veículo & Documento</h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Veículo */}
+                        {/* Busca de Veículo */}
                         <div className="space-y-1.5 flex flex-col">
                             <Label className="text-xs font-medium text-slate-700">Veículo *</Label>
                             <Popover open={openVehiclePopover} onOpenChange={setOpenVehiclePopover}>
@@ -222,23 +222,23 @@ export default function NovoDocumentoPage() {
                             </Popover>
                         </div>
 
-                        {/* Tipo de Documento Ajustado */}
+                        {/* Tipo de Documento com largura corrigida e valores em Caixa Alta */}
                         <div className="space-y-1.5 flex flex-col">
                             <Label className="text-xs font-medium text-slate-700">Tipo de Documento *</Label>
                             <Select
                                 value={formData.tipo_documento}
-                                onValueChange={(val) => setFormData({ ...formData, tipo_documento: val || "crlv" })}
+                                onValueChange={(val) => setFormData({ ...formData, tipo_documento: val || "CRLV" })}
                             >
-                                <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-xs">
+                                <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-xs flex items-center justify-between">
                                     <SelectValue placeholder="Selecione o tipo de documento" />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-slate-200 bg-white min-w-[280px]">
-                                    <SelectItem value="crlv">CRLV Digital / Licenciamento</SelectItem>
-                                    <SelectItem value="ipva">IPVA</SelectItem>
-                                    <SelectItem value="seguro_dpvat">Seguro OBRIGATÓRIO / DPVAT</SelectItem>
-                                    <SelectItem value="seguro_apolice">Apólice de Seguro Privado</SelectItem>
-                                    <SelectItem value="tacografo">Laudo do Tacógrafo</SelectItem>
-                                    <SelectItem value="outro">Outro / Licença Especial</SelectItem>
+                                    <SelectItem value="CRLV">CRLV Digital / Licenciamento</SelectItem>
+                                    <SelectItem value="IPVA">IPVA</SelectItem>
+                                    <SelectItem value="SEGURO_DPVAT">Seguro OBRIGATÓRIO / DPVAT</SelectItem>
+                                    <SelectItem value="SEGURO_APOLICE">Apólice de Seguro Privado</SelectItem>
+                                    <SelectItem value="TACOGRAFO">Laudo do Tacógrafo</SelectItem>
+                                    <SelectItem value="OUTRO">Outro / Licença Especial</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
