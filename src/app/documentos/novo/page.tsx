@@ -29,13 +29,16 @@ import {
     CommandItem,
     CommandList,
 } from "@/components/ui/command"
-import { ArrowLeft, Save, Loader2, Upload, CheckCircle2, Check, ChevronsUpDown } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, Save, Loader2, Upload, CheckCircle2, Check, ChevronsUpDown, AlertTriangle } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export default function NovoDocumentoPage() {
     const { selectedCompany } = useCompany()
     const router = useRouter()
     const supabase = createClient()
+
+    const currentYear = new Date().getFullYear()
 
     const [submitting, setSubmitting] = useState(false)
     const [uploading, setUploading] = useState(false)
@@ -49,12 +52,14 @@ export default function NovoDocumentoPage() {
     const [formData, setFormData] = useState({
         vehicle_id: "",
         tipo_documento: "crlv",
-        ref_ano: new Date().getFullYear().toString(),
-        data_vencimento: "",
-        valor: "",
-        situacao: "em_dia",
+        ref_ano: currentYear.toString(),
         observacoes: "",
     })
+
+    // Cálculo automático da situação com base no Ano Exercício (Renovação anual)
+    const anoExercicioNum = Number(formData.ref_ano) || currentYear
+    const isVencido = anoExercicioNum < currentYear
+    const situacaoCalculada = isVencido ? "vencido" : "em_dia"
 
     useEffect(() => {
         async function loadVehicles() {
@@ -124,18 +129,17 @@ export default function NovoDocumentoPage() {
 
         setSubmitting(true)
         try {
-            const isoVencimento = formData.data_vencimento
-                ? `${formData.data_vencimento}T12:00:00.000Z`
-                : new Date().toISOString()
+            // Define o vencimento padrão para o final do ano do exercício cadastrado
+            const isoVencimento = `${anoExercicioNum}-12-31T23:59:59.000Z`
 
             const payload = {
                 company_id: targetCompanyId,
                 vehicle_id: formData.vehicle_id,
                 tipo_documento: formData.tipo_documento,
-                ref_ano: Number(formData.ref_ano) || new Date().getFullYear(),
+                ref_ano: anoExercicioNum,
                 data_vencimento: isoVencimento,
-                valor: formData.valor ? Number(formData.valor) : null,
-                situacao: formData.situacao,
+                valor: null,
+                situacao: situacaoCalculada,
                 comprovante_ref: fileUrl || null,
                 observacoes: formData.observacoes.trim() || null,
             }
@@ -166,7 +170,7 @@ export default function NovoDocumentoPage() {
                 </Link>
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Cadastrar Documento / CRLV</h1>
-                    <p className="text-xs text-slate-500 mt-0.5">Anexe licenciamento, CRLV digital, IPVA e taxas do veículo</p>
+                    <p className="text-xs text-slate-500 mt-0.5">Anexe o CRLV Digital ou licença do veículo por ano exercício</p>
                 </div>
             </div>
 
@@ -242,10 +246,11 @@ export default function NovoDocumentoPage() {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Ano Exercício */}
                         <div className="space-y-1.5">
                             <Label htmlFor="ref_ano" className="text-xs font-medium text-slate-700">
-                                Ano de Referência *
+                                Ano Exercício *
                             </Label>
                             <Input
                                 id="ref_ano"
@@ -253,53 +258,29 @@ export default function NovoDocumentoPage() {
                                 placeholder="2026"
                                 value={formData.ref_ano}
                                 onChange={(e) => setFormData({ ...formData, ref_ano: e.target.value })}
-                                className="h-10 rounded-xl border-slate-200"
-                                required
-                            />
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <Label htmlFor="data_vencimento" className="text-xs font-medium text-slate-700">
-                                Data de Vencimento *
-                            </Label>
-                            <Input
-                                id="data_vencimento"
-                                type="date"
-                                value={formData.data_vencimento}
-                                onChange={(e) => setFormData({ ...formData, data_vencimento: e.target.value })}
-                                className="h-10 rounded-xl border-slate-200 text-xs"
-                                required
-                            />
-                        </div>
-
-                        <div className="space-y-1.5">
-                            <Label htmlFor="valor" className="text-xs font-medium text-slate-700">
-                                Valor da Taxa / Guia (R$)
-                            </Label>
-                            <Input
-                                id="valor"
-                                type="number"
-                                step="0.01"
-                                placeholder="0.00"
-                                value={formData.valor}
-                                onChange={(e) => setFormData({ ...formData, valor: e.target.value })}
                                 className="h-10 rounded-xl border-slate-200 font-semibold"
+                                required
                             />
                         </div>
-                    </div>
 
-                    <div className="space-y-1.5">
-                        <Label className="text-xs font-medium text-slate-700">Situação do Pagamento / Documento *</Label>
-                        <Select value={formData.situacao} onValueChange={(val) => setFormData({ ...formData, situacao: val || "em_dia" })}>
-                            <SelectTrigger className="h-10 rounded-xl border-slate-200">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl border-slate-200 bg-white">
-                                <SelectItem value="em_dia">Em dia / Válido</SelectItem>
-                                <SelectItem value="a_vencer">A Vencer</SelectItem>
-                                <SelectItem value="vencido">Vencido / Atrasado</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        {/* Status Calculado Automaticamente */}
+                        <div className="space-y-1.5">
+                            <Label className="text-xs font-medium text-slate-700">Status do Documento</Label>
+                            <div className="h-10 rounded-xl border border-slate-200 bg-slate-50 flex items-center px-3.5 justify-between">
+                                <span className="text-xs font-medium text-slate-600">Situação Atual:</span>
+                                {isVencido ? (
+                                    <Badge variant="outline" className="bg-rose-50 text-rose-700 border-rose-200 font-semibold gap-1">
+                                        <AlertTriangle className="h-3.5 w-3.5 text-rose-600" />
+                                        Vencido / Atrasado
+                                    </Badge>
+                                ) : (
+                                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 font-semibold gap-1">
+                                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                                        Em dia / Válido
+                                    </Badge>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -339,7 +320,7 @@ export default function NovoDocumentoPage() {
                     </Label>
                     <Textarea
                         id="observacoes"
-                        placeholder="Anotações adicionais, código de barras da guia de pagamento ou restrições..."
+                        placeholder="Anotações adicionais ou restrições..."
                         value={formData.observacoes}
                         onChange={(e) => setFormData({ ...formData, observacoes: e.target.value })}
                         className="rounded-xl border-slate-200 text-xs min-h-[70px]"
