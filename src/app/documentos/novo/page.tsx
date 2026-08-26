@@ -45,18 +45,16 @@ export default function NovoDocumentoPage() {
     const [vehicles, setVehicles] = useState<any[]>([])
     const [fileUrl, setFileUrl] = useState("")
 
-    // Controle do Popover de busca de veículos
     const [openVehiclePopover, setOpenVehiclePopover] = useState(false)
     const [selectedVehicle, setSelectedVehicle] = useState<any>(null)
 
     const [formData, setFormData] = useState({
         vehicle_id: "",
-        tipo_documento: "crlv",
+        tipo_documento: "CRLV", // Atualizado para maiúsculo
         ref_ano: currentYear.toString(),
         observacoes: "",
     })
 
-    // Cálculo automático da situação com base no Ano Exercício (Renovação anual)
     const anoExercicioNum = Number(formData.ref_ano) || currentYear
     const isVencido = anoExercicioNum < currentYear
     const situacaoCalculada = isVencido ? "vencido" : "em_dia"
@@ -89,7 +87,6 @@ export default function NovoDocumentoPage() {
         setOpenVehiclePopover(false)
     }
 
-    // Upload do PDF/Imagem no Storage
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file || !selectedCompany) return
@@ -129,13 +126,12 @@ export default function NovoDocumentoPage() {
 
         setSubmitting(true)
         try {
-            // Define o vencimento padrão para o final do ano do exercício cadastrado
             const isoVencimento = `${anoExercicioNum}-12-31T23:59:59.000Z`
 
             const payload = {
                 company_id: targetCompanyId,
                 vehicle_id: formData.vehicle_id,
-                tipo_documento: formData.tipo_documento,
+                tipo_documento: formData.tipo_documento.toUpperCase(), // Garante valor compatível com o enum
                 ref_ano: anoExercicioNum,
                 data_vencimento: isoVencimento,
                 valor: null,
@@ -179,7 +175,6 @@ export default function NovoDocumentoPage() {
                     <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">Identificação do Veículo & Documento</h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Pesquisa de Veículo com Autocomplete */}
                         <div className="space-y-1.5 flex flex-col">
                             <Label className="text-xs font-medium text-slate-700">Veículo *</Label>
                             <Popover open={openVehiclePopover} onOpenChange={setOpenVehiclePopover}>
@@ -229,25 +224,24 @@ export default function NovoDocumentoPage() {
                             <Label className="text-xs font-medium text-slate-700">Tipo de Documento *</Label>
                             <Select
                                 value={formData.tipo_documento}
-                                onValueChange={(val) => setFormData({ ...formData, tipo_documento: val || "crlv" })}
+                                onValueChange={(val) => setFormData({ ...formData, tipo_documento: val || "CRLV" })}
                             >
                                 <SelectTrigger className="h-10 rounded-xl border-slate-200">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-xl border-slate-200 bg-white">
-                                    <SelectItem value="crlv">CRLV Digital / Licenciamento</SelectItem>
-                                    <SelectItem value="ipva">IPVA</SelectItem>
-                                    <SelectItem value="seguro_dpvat">Seguro OBRIGATÓRIO / DPVAT</SelectItem>
-                                    <SelectItem value="seguro_apolice">Apólice de Seguro Privado</SelectItem>
-                                    <SelectItem value="tacografo">Laudo do Tacógrafo</SelectItem>
-                                    <SelectItem value="outro">Outro / Licença Especial</SelectItem>
+                                    <SelectItem value="CRLV">CRLV Digital / Licenciamento</SelectItem>
+                                    <SelectItem value="IPVA">IPVA</SelectItem>
+                                    <SelectItem value="SEGURO_DPVAT">Seguro OBRIGATÓRIO / DPVAT</SelectItem>
+                                    <SelectItem value="SEGURO_APOLICE">Apólice de Seguro Privado</SelectItem>
+                                    <SelectItem value="TACOGRAFO">Laudo do Tacógrafo</SelectItem>
+                                    <SelectItem value="OUTRO">Outro / Licença Especial</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Ano Exercício */}
                         <div className="space-y-1.5">
                             <Label htmlFor="ref_ano" className="text-xs font-medium text-slate-700">
                                 Ano Exercício *
@@ -263,7 +257,6 @@ export default function NovoDocumentoPage() {
                             />
                         </div>
 
-                        {/* Status Calculado Automaticamente */}
                         <div className="space-y-1.5">
                             <Label className="text-xs font-medium text-slate-700">Status do Documento</Label>
                             <div className="h-10 rounded-xl border border-slate-200 bg-slate-50 flex items-center px-3.5 justify-between">
@@ -284,7 +277,6 @@ export default function NovoDocumentoPage() {
                     </div>
                 </div>
 
-                {/* Área de Anexo de Arquivos (CRLV / PDF) */}
                 <div className="space-y-3 pt-2 border-t border-slate-100">
                     <Label className="text-xs font-medium text-slate-700">Anexo do Documento (PDF / Foto do CRLV)</Label>
 
