@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useCompany } from "@/contexts/company-context"
 import { createClient } from "@/lib/supabase/client"
@@ -30,20 +29,22 @@ import {
     CommandList,
 } from "@/components/ui/command"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Save, Loader2, Upload, CheckCircle2, Check, ChevronsUpDown, AlertTriangle } from "lucide-react"
+import { ArrowLeft, Save, Loader2, CheckCircle2, Check, ChevronsUpDown, AlertTriangle, FileUp, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 export default function NovoDocumentoPage() {
     const { selectedCompany } = useCompany()
-    const router = useRouter()
     const supabase = createClient()
 
     const currentYear = new Date().getFullYear()
 
     const [submitting, setSubmitting] = useState(false)
     const [uploading, setUploading] = useState(false)
+    const [isDragging, setIsDragging] = useState(false)
     const [vehicles, setVehicles] = useState<any[]>([])
     const [fileUrl, setFileUrl] = useState("")
+    const [fileName, setFileName] = useState("")
+    const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
     const [openVehiclePopover, setOpenVehiclePopover] = useState(false)
     const [selectedVehicle, setSelectedVehicle] = useState<any>(null)
@@ -87,8 +88,7 @@ export default function NovoDocumentoPage() {
         setOpenVehiclePopover(false)
     }
 
-    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0]
+    const processFile = async (file: File | undefined) => {
         if (!file || !selectedCompany) return
 
         const companyFolder = selectedCompany.id === "all" ? (selectedVehicle?.company_id || "geral") : selectedCompany.id
@@ -96,27 +96,63 @@ export default function NovoDocumentoPage() {
         setUploading(true)
         try {
             const fileExt = file.name.split(".").pop()
-            const fileName = `${companyFolder}/${Date.now()}_documento.${fileExt}`
-            const filePath = `${fileName}`
+            const generatedName = `${companyFolder}/${Date.now()}_documento.${fileExt}`
 
             const { error: uploadError } = await supabase.storage
                 .from("documents")
-                .upload(filePath, file, { upsert: true })
+                .upload(generatedName, file, { upsert: true })
 
             if (uploadError) throw uploadError
 
-            const { data } = supabase.storage.from("documents").getPublicUrl(filePath)
+            const { data } = supabase.storage.from("documents").getPublicUrl(generatedName)
             setFileUrl(data.publicUrl)
+            setFileName(file.name)
         } catch (err: any) {
             console.error("Erro ao fazer upload do documento:", err)
             alert(`Erro no upload: ${err.message || "Certifique-se de que o bucket 'documents' existe no Supabase."}`)
         } finally {
             setUploading(false)
+            setIsDragging(false)
         }
+    }
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        processFile(file)
+    }
+
+    const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setIsDragging(true)
+    }
+
+    const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setIsDragging(false)
+    }
+
+    const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        e.stopPropagation()
+        setIsDragging(false)
+
+        const files = e.dataTransfer.files
+        if (files && files.length > 0) {
+            processFile(files[0])
+        }
+    }
+
+    const removeAnexo = () => {
+        setFileUrl("")
+        setFileName("")
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        setSuccessMessage(null)
+
         if (!selectedVehicle) {
             alert("Selecione um veículo válido para o documento.")
             return
@@ -131,7 +167,7 @@ export default function NovoDocumentoPage() {
             const payload = {
                 company_id: targetCompanyId,
                 vehicle_id: formData.vehicle_id,
-                tipo_documento: formData.tipo_documento.toLowerCase(), // Garante envio em minúsculas exigido pelo enum doc_type do Postgres
+                tipo_documento: formData.tipo_documento.toLowerCase(),
                 ref_ano: anoExercicioNum,
                 data_vencimento: dateOnlyVencimento,
                 valor: null,
@@ -143,8 +179,26 @@ export default function NovoDocumentoPage() {
             const { error } = await supabase.from("vehicle_documents").insert([payload as any])
             if (error) throw error
 
-            router.push("/documentos")
-            router.refresh()
+            // Mensagem de confirmação
+            const placaSalva = selectedVehicle.placa
+            setSuccessMessage(`Documento do veículo ${placaSalva} cadastrado com sucesso!`)
+
+            // Reseta os campos para o próximo cadastro rapidamente
+            setFormData({
+                vehicle_id: "",
+                tipo_documento: "crlv",
+                ref_ano: currentYear.toString(),
+                observacoes: "",
+            })
+            setSelectedVehicle(null)
+            setFileUrl("")
+            setFileName("")
+
+            // Remove a mensagem de sucesso automaticamente após 5 segundos
+            setTimeout(() => {
+                setSuccessMessage(null)
+            }, 5000)
+
         } catch (err: any) {
             console.error("Erro ao salvar documento:", err)
             alert(`Erro ao salvar: ${err.message}`)
@@ -169,6 +223,23 @@ export default function NovoDocumentoPage() {
                     <p className="text-xs text-slate-500 mt-0.5">Anexe o CRLV Digital ou licença do veículo por ano exercício</p>
                 </div>
             </div>
+
+            {/* Banner de Sucesso */}
+            {successMessage && (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between gap-3 text-emerald-800 text-xs font-semibold animate-in fade-in-50">
+                    <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0" />
+                        <span>{successMessage}</span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setSuccessMessage(null)}
+                        className="text-emerald-600 hover:text-emerald-900 p-1"
+                    >
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+            )}
 
             <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
                 <div className="space-y-4">
@@ -279,31 +350,66 @@ export default function NovoDocumentoPage() {
                     </div>
                 </div>
 
+                {/* Área de Drag & Drop */}
                 <div className="space-y-3 pt-2 border-t border-slate-100">
                     <Label className="text-xs font-medium text-slate-700">Anexo do Documento (PDF / Foto do CRLV)</Label>
 
-                    <div className="p-4 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 flex flex-col items-center justify-center gap-2">
+                    <div
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        className={cn(
+                            "relative border-2 border-dashed rounded-2xl p-6 transition-all flex flex-col items-center justify-center min-h-[140px] text-center",
+                            isDragging
+                                ? "border-blue-500 bg-blue-50/60 scale-[1.01]"
+                                : "border-slate-200 bg-slate-50/80 hover:bg-slate-100/60"
+                        )}
+                    >
                         {uploading ? (
-                            <div className="flex items-center gap-2 text-slate-500 text-xs py-2">
-                                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                                <span>Enviando arquivo...</span>
+                            <div className="flex flex-col items-center gap-2 text-slate-500 text-xs">
+                                <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                                <span>Enviando documento...</span>
                             </div>
                         ) : fileUrl ? (
-                            <div className="flex items-center gap-2 text-emerald-700 text-xs font-semibold py-1">
-                                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                <span>Documento Anexado com Sucesso!</span>
+                            <div className="relative flex flex-col items-center gap-1.5">
+                                <div className="h-10 w-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                    <CheckCircle2 className="h-6 w-6" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-800 mt-1">
+                                    Documento Anexado com Sucesso!
+                                </span>
+                                {fileName && (
+                                    <span className="text-[11px] text-slate-500 font-medium truncate max-w-[280px]">
+                                        {fileName}
+                                    </span>
+                                )}
+                                <button
+                                    type="button"
+                                    onClick={removeAnexo}
+                                    className="mt-2 inline-flex items-center gap-1 text-[11px] text-rose-600 font-semibold hover:underline"
+                                >
+                                    <X className="h-3.5 w-3.5" />
+                                    Remover anexo
+                                </button>
                             </div>
                         ) : (
-                            <>
-                                <Upload className="h-6 w-6 text-slate-400" />
-                                <span className="text-xs text-slate-600 font-medium">Selecione o arquivo do CRLV ou comprovante</span>
+                            <label className="cursor-pointer flex flex-col items-center justify-center w-full h-full">
+                                <div className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-2">
+                                    <FileUp className="h-5 w-5" />
+                                </div>
+                                <span className="text-xs font-bold text-slate-700">
+                                    {isDragging ? "Solte o arquivo aqui..." : "Arraste e solte o arquivo do CRLV aqui"}
+                                </span>
+                                <span className="text-[11px] text-slate-400 mt-0.5">
+                                    ou clique para selecionar do seu computador (PDF, JPG, PNG)
+                                </span>
                                 <input
                                     type="file"
                                     accept="image/*,application/pdf"
                                     onChange={handleFileUpload}
-                                    className="text-xs text-slate-500 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                                    className="hidden"
                                 />
-                            </>
+                            </label>
                         )}
                     </div>
                 </div>
@@ -326,7 +432,7 @@ export default function NovoDocumentoPage() {
                         href="/documentos"
                         className={buttonVariants({ variant: "outline", className: "h-10 rounded-xl" })}
                     >
-                        Cancelar
+                        Concluir / Voltar
                     </Link>
                     <Button
                         type="submit"
@@ -341,7 +447,7 @@ export default function NovoDocumentoPage() {
                         ) : (
                             <>
                                 <Save className="h-4 w-4" />
-                                Salvar Documento
+                                Salvar e Cadastrar Outro
                             </>
                         )}
                     </Button>
