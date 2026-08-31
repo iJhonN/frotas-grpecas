@@ -58,22 +58,24 @@ export default function NovoMotoristaPage() {
         observacoes: "",
     })
 
-    // Carrega a lista de empresas
+    // Carrega a lista de empresas (sem tentar buscar 'nome_fantasia')
     useEffect(() => {
         async function loadCompanies() {
             try {
-                const { data } = await supabase
+                const { data, error } = await supabase
                     .from("companies")
-                    .select("id, nome_fantasia, razao_social")
-                    .order("nome_fantasia")
+                    .select("*")
 
-                setCompanies(data || [])
+                if (error) throw error
+
+                const list = data || []
+                setCompanies(list)
 
                 // Define a empresa pré-selecionada com base no contexto global
                 if (selectedCompany && selectedCompany.id !== "all") {
                     setFormData((prev) => ({ ...prev, company_id: selectedCompany.id }))
-                } else if (data && data.length > 0) {
-                    setFormData((prev) => ({ ...prev, company_id: data[0].id }))
+                } else if (list.length > 0) {
+                    setFormData((prev) => ({ ...prev, company_id: list[0].id }))
                 }
             } catch (err) {
                 console.error("Erro ao carregar empresas:", err)
@@ -190,7 +192,7 @@ export default function NovoMotoristaPage() {
                             <SelectContent className="rounded-xl border-slate-200 bg-white">
                                 {companies.map((c) => (
                                     <SelectItem key={c.id} value={c.id}>
-                                        {c.nome_fantasia || c.razao_social}
+                                        {c.nome || c.nome_fantasia || c.razao_social || "Empresa"}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
