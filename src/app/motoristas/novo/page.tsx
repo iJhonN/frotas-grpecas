@@ -58,7 +58,7 @@ export default function NovoMotoristaPage() {
         observacoes: "",
     })
 
-    // Carrega a lista de empresas (sem tentar buscar 'nome_fantasia')
+    // Carrega a lista de empresas
     useEffect(() => {
         async function loadCompanies() {
             try {
@@ -184,7 +184,7 @@ export default function NovoMotoristaPage() {
                         <Label className="text-xs font-medium text-slate-700">Empresas Cadastradas *</Label>
                         <Select
                             value={formData.company_id}
-                            onValueChange={(val) => setFormData((prev) => ({ ...prev, company_id: val, veiculo_atual_id: "" }))}
+                            onValueChange={(val) => setFormData((prev) => ({ ...prev, company_id: val || "", veiculo_atual_id: "" }))}
                         >
                             <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-white">
                                 <SelectValue placeholder="Selecione a empresa do motorista" />
