@@ -17,7 +17,21 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { ArrowLeft, Save, Loader2 } from "lucide-react"
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command"
+import { ArrowLeft, Save, Loader2, Check, ChevronsUpDown, Building2 } from "lucide-react"
+import { cn } from "@/lib/utils"
 
 export default function NovoMotoristaPage() {
     const { selectedCompany } = useCompany()
@@ -25,9 +39,12 @@ export default function NovoMotoristaPage() {
     const supabase = createClient()
 
     const [submitting, setSubmitting] = useState(false)
+    const [companies, setCompanies] = useState<any[]>([])
     const [vehicles, setVehicles] = useState<any[]>([])
+    const [openVehiclePopover, setOpenVehiclePopover] = useState(false)
 
     const [formData, setFormData] = useState({
+        company_id: "",
         nome_completo: "",
         telefone: "",
         cidade: "",
@@ -37,20 +54,48 @@ export default function NovoMotoristaPage() {
         toxicologico_validade: "",
         curso_transporte_passageiros_validade: "",
         ear: false,
-        veiculo_atual_id: "nenhum",
+        veiculo_atual_id: "",
         observacoes: "",
     })
 
+    // Carrega a lista de empresas
+    useEffect(() => {
+        async function loadCompanies() {
+            try {
+                const { data } = await supabase
+                    .from("companies")
+                    .select("id, nome_fantasia, razao_social")
+                    .order("nome_fantasia")
+
+                setCompanies(data || [])
+
+                // Define a empresa pré-selecionada com base no contexto global
+                if (selectedCompany && selectedCompany.id !== "all") {
+                    setFormData((prev) => ({ ...prev, company_id: selectedCompany.id }))
+                } else if (data && data.length > 0) {
+                    setFormData((prev) => ({ ...prev, company_id: data[0].id }))
+                }
+            } catch (err) {
+                console.error("Erro ao carregar empresas:", err)
+            }
+        }
+        loadCompanies()
+    }, [selectedCompany])
+
+    // Carrega veículos conforme a empresa selecionada no formulário
     useEffect(() => {
         async function loadVehicles() {
-            if (!selectedCompany) return
+            if (!formData.company_id) {
+                setVehicles([])
+                return
+            }
             try {
                 let query = supabase
                     .from("vehicles")
                     .select("id, placa, marca, modelo")
 
-                if (selectedCompany.id !== "all") {
-                    query = query.eq("company_id", selectedCompany.id)
+                if (formData.company_id !== "all") {
+                    query = query.eq("company_id", formData.company_id)
                 }
 
                 const { data } = await query
@@ -60,12 +105,13 @@ export default function NovoMotoristaPage() {
             }
         }
         loadVehicles()
-    }, [selectedCompany])
+    }, [formData.company_id])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!selectedCompany) {
-            alert("Selecione uma empresa no topo antes de continuar.")
+
+        if (!formData.company_id) {
+            alert("Selecione a empresa à qual este motorista pertencerá.")
             return
         }
 
@@ -73,16 +119,8 @@ export default function NovoMotoristaPage() {
         try {
             const categoriasArray = formData.cnh_categoria.split("")
 
-            const targetCompanyId = selectedCompany.id === "all" ? null : selectedCompany.id
-
-            if (!targetCompanyId) {
-                alert("Selecione uma empresa específica para vincular este motorista.")
-                setSubmitting(false)
-                return
-            }
-
             const payload = {
-                company_id: targetCompanyId,
+                company_id: formData.company_id,
                 nome_completo: formData.nome_completo.trim(),
                 telefone: formData.telefone.trim() || null,
                 cidade: formData.cidade.trim() || null,
@@ -92,7 +130,7 @@ export default function NovoMotoristaPage() {
                 toxicologico_validade: formData.toxicologico_validade || null,
                 curso_transporte_passageiros_validade: formData.curso_transporte_passageiros_validade || null,
                 ear: formData.ear,
-                veiculo_atual_id: formData.veiculo_atual_id === "nenhum" ? null : formData.veiculo_atual_id,
+                veiculo_atual_id: formData.veiculo_atual_id || null,
                 observacoes: formData.observacoes.trim() || null,
                 status: "ativo",
             }
@@ -133,8 +171,35 @@ export default function NovoMotoristaPage() {
             </div>
 
             <form onSubmit={handleSubmit} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-6">
-                {/* 1. Dados Pessoais */}
+                {/* Seleção de Empresa no Formulário */}
                 <div className="space-y-4">
+                    <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-blue-600" />
+                        Vínculo de Empresa
+                    </h2>
+
+                    <div className="space-y-1.5 flex flex-col">
+                        <Label className="text-xs font-medium text-slate-700">Empresas Cadastradas *</Label>
+                        <Select
+                            value={formData.company_id}
+                            onValueChange={(val) => setFormData((prev) => ({ ...prev, company_id: val, veiculo_atual_id: "" }))}
+                        >
+                            <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-white">
+                                <SelectValue placeholder="Selecione a empresa do motorista" />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl border-slate-200 bg-white">
+                                {companies.map((c) => (
+                                    <SelectItem key={c.id} value={c.id}>
+                                        {c.nome_fantasia || c.razao_social}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                {/* 1. Dados Pessoais */}
+                <div className="space-y-4 pt-2">
                     <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">Dados Pessoais</h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -283,28 +348,62 @@ export default function NovoMotoristaPage() {
                 <div className="space-y-4 pt-2">
                     <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">Vínculo de Veículo & Observações</h2>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 flex flex-col">
                         <Label className="text-xs font-medium text-slate-700">Veículo Atual Atribuído (Opcional)</Label>
-                        <Select
-                            value={formData.veiculo_atual_id}
-                            onValueChange={(val) => setFormData({ ...formData, veiculo_atual_id: val || "nenhum" })}
-                        >
-                            <SelectTrigger className="h-10 rounded-xl border-slate-200">
-                                <SelectValue placeholder="Selecione um veículo para vincular ao motorista">
-                                    {currentVehicleObj
-                                        ? `${currentVehicleObj.placa} - ${currentVehicleObj.marca} ${currentVehicleObj.modelo}`
-                                        : undefined}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent className="rounded-xl border-slate-200 bg-white">
-                                <SelectItem value="nenhum">Nenhum veículo vinculado</SelectItem>
-                                {vehicles.map((v) => (
-                                    <SelectItem key={v.id} value={v.id}>
-                                        <span>{v.placa} - {v.marca} {v.modelo}</span>
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <Popover open={openVehiclePopover} onOpenChange={setOpenVehiclePopover}>
+                            <PopoverTrigger className="h-10 w-full flex items-center justify-between rounded-xl border border-slate-200 bg-white px-3 text-xs font-normal text-slate-900 hover:bg-slate-50 transition-colors">
+                                {currentVehicleObj ? (
+                                    <span className="truncate">
+                                        {currentVehicleObj.placa} - {currentVehicleObj.marca} {currentVehicleObj.modelo}
+                                    </span>
+                                ) : (
+                                    <span className="text-slate-400">Buscar por placa ou modelo de veículo...</span>
+                                )}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[320px] sm:w-[450px] p-0 rounded-xl border border-slate-200 bg-white shadow-xl z-50" align="start">
+                                <Command className="bg-white rounded-xl">
+                                    <CommandInput placeholder="Digite a placa, marca ou modelo..." className="h-9 text-xs" />
+                                    <CommandList className="max-h-[220px] overflow-y-auto p-1">
+                                        <CommandEmpty className="py-3 text-center text-xs text-slate-500">
+                                            Nenhum veículo encontrado.
+                                        </CommandEmpty>
+                                        <CommandGroup>
+                                            <CommandItem
+                                                value="nenhum_veiculo"
+                                                onSelect={() => {
+                                                    setFormData((prev) => ({ ...prev, veiculo_atual_id: "" }))
+                                                    setOpenVehiclePopover(false)
+                                                }}
+                                                className="text-xs rounded-lg cursor-pointer py-2 px-2 text-slate-400 italic hover:bg-slate-100"
+                                            >
+                                                Nenhum veículo vinculado
+                                            </CommandItem>
+                                            {vehicles.map((v) => (
+                                                <CommandItem
+                                                    key={v.id}
+                                                    value={`${v.placa} ${v.marca} ${v.modelo}`}
+                                                    onSelect={() => {
+                                                        setFormData((prev) => ({ ...prev, veiculo_atual_id: v.id }))
+                                                        setOpenVehiclePopover(false)
+                                                    }}
+                                                    className="text-xs rounded-lg cursor-pointer py-2 px-2 hover:bg-slate-100"
+                                                >
+                                                    <Check
+                                                        className={cn(
+                                                            "mr-2 h-3.5 w-3.5 text-blue-600",
+                                                            formData.veiculo_atual_id === v.id ? "opacity-100" : "opacity-0"
+                                                        )}
+                                                    />
+                                                    <span className="font-semibold text-slate-900 mr-1.5">{v.placa}</span>
+                                                    <span className="text-slate-500 truncate">{v.marca} {v.modelo}</span>
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
                     </div>
 
                     <div className="space-y-1.5">
