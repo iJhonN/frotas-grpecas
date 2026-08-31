@@ -10,6 +10,12 @@ export default function MotoristasLayout({
         <div className="flex min-h-screen bg-slate-50">
             <Sidebar />
             <div className="flex-1 flex flex-col min-w-0">
+                {/* Oculta o filtro de empresa global na seção de motoristas */}
+                <Header hideCompanySelect />
+                <main className="flex-1 p-6 md:p-8 overflow-y-auto">
+                    {children}
+                </main>
+            </div>
         </div>
     )
 }
