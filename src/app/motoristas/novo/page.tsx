@@ -29,10 +29,8 @@ export default function NovoMotoristaPage() {
 
     const [formData, setFormData] = useState({
         nome_completo: "",
-        cpf: "",
         telefone: "",
         cidade: "",
-        id_motorista_legado: "",
         cnh_numero: "",
         cnh_categoria: "AD",
         cnh_validade: "",
@@ -47,10 +45,15 @@ export default function NovoMotoristaPage() {
         async function loadVehicles() {
             if (!selectedCompany) return
             try {
-                const { data } = await supabase
+                let query = supabase
                     .from("vehicles")
                     .select("id, placa, marca, modelo")
-                    .eq("company_id", selectedCompany.id)
+
+                if (selectedCompany.id !== "all") {
+                    query = query.eq("company_id", selectedCompany.id)
+                }
+
+                const { data } = await query
                 setVehicles(data || [])
             } catch (err) {
                 console.error("Erro ao carregar veículos:", err)
@@ -70,13 +73,19 @@ export default function NovoMotoristaPage() {
         try {
             const categoriasArray = formData.cnh_categoria.split("")
 
+            const targetCompanyId = selectedCompany.id === "all" ? null : selectedCompany.id
+
+            if (!targetCompanyId) {
+                alert("Selecione uma empresa específica para vincular este motorista.")
+                setSubmitting(false)
+                return
+            }
+
             const payload = {
-                company_id: selectedCompany.id,
+                company_id: targetCompanyId,
                 nome_completo: formData.nome_completo.trim(),
-                cpf: formData.cpf.replace(/\D/g, ""),
-                telefone: formData.telefone || null,
+                telefone: formData.telefone.trim() || null,
                 cidade: formData.cidade.trim() || null,
-                id_motorista_legado: formData.id_motorista_legado.trim() || null,
                 cnh_numero: formData.cnh_numero.replace(/\D/g, ""),
                 categorias_cnh: categoriasArray,
                 cnh_validade: formData.cnh_validade,
@@ -84,7 +93,7 @@ export default function NovoMotoristaPage() {
                 curso_transporte_passageiros_validade: formData.curso_transporte_passageiros_validade || null,
                 ear: formData.ear,
                 veiculo_atual_id: formData.veiculo_atual_id === "nenhum" ? null : formData.veiculo_atual_id,
-                observacoes: formData.observacoes || null,
+                observacoes: formData.observacoes.trim() || null,
                 status: "ativo",
             }
 
@@ -129,7 +138,7 @@ export default function NovoMotoristaPage() {
                     <h2 className="text-sm font-semibold text-slate-800 border-b border-slate-100 pb-2">Dados Pessoais</h2>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="md:col-span-2 space-y-1.5">
+                        <div className="md:col-span-3 space-y-1.5">
                             <Label htmlFor="nome_completo" className="text-xs font-medium text-slate-700">
                                 Nome Completo *
                             </Label>
@@ -142,36 +151,9 @@ export default function NovoMotoristaPage() {
                                 required
                             />
                         </div>
-
-                        <div className="space-y-1.5">
-                            <Label htmlFor="id_motorista_legado" className="text-xs font-medium text-slate-700">
-                                ID Legado / Matrícula
-                            </Label>
-                            <Input
-                                id="id_motorista_legado"
-                                placeholder="Ex: MOT-001"
-                                value={formData.id_motorista_legado}
-                                onChange={(e) => setFormData({ ...formData, id_motorista_legado: e.target.value })}
-                                className="h-10 rounded-xl border-slate-200"
-                            />
-                        </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-1.5">
-                            <Label htmlFor="cpf" className="text-xs font-medium text-slate-700">
-                                CPF *
-                            </Label>
-                            <Input
-                                id="cpf"
-                                placeholder="000.000.000-00"
-                                value={formData.cpf}
-                                onChange={(e) => setFormData({ ...formData, cpf: e.target.value })}
-                                className="h-10 rounded-xl border-slate-200"
-                                required
-                            />
-                        </div>
-
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1.5">
                             <Label htmlFor="telefone" className="text-xs font-medium text-slate-700">
                                 Telefone / Celular
@@ -228,7 +210,7 @@ export default function NovoMotoristaPage() {
                                 <SelectTrigger className="h-10 rounded-xl border-slate-200">
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="rounded-xl border-slate-200 bg-white">
                                     <SelectItem value="A">A</SelectItem>
                                     <SelectItem value="B">B</SelectItem>
                                     <SelectItem value="C">C</SelectItem>
@@ -251,7 +233,7 @@ export default function NovoMotoristaPage() {
                                 type="date"
                                 value={formData.cnh_validade}
                                 onChange={(e) => setFormData({ ...formData, cnh_validade: e.target.value })}
-                                className="h-10 rounded-xl border-slate-200"
+                                className="h-10 rounded-xl border-slate-200 text-xs"
                                 required
                             />
                         </div>
@@ -267,7 +249,7 @@ export default function NovoMotoristaPage() {
                                 type="date"
                                 value={formData.toxicologico_validade}
                                 onChange={(e) => setFormData({ ...formData, toxicologico_validade: e.target.value })}
-                                className="h-10 rounded-xl border-slate-200"
+                                className="h-10 rounded-xl border-slate-200 text-xs"
                             />
                         </div>
 
@@ -280,7 +262,7 @@ export default function NovoMotoristaPage() {
                                 type="date"
                                 value={formData.curso_transporte_passageiros_validade}
                                 onChange={(e) => setFormData({ ...formData, curso_transporte_passageiros_validade: e.target.value })}
-                                className="h-10 rounded-xl border-slate-200"
+                                className="h-10 rounded-xl border-slate-200 text-xs"
                             />
                         </div>
                     </div>
@@ -314,7 +296,7 @@ export default function NovoMotoristaPage() {
                                         : undefined}
                                 </SelectValue>
                             </SelectTrigger>
-                            <SelectContent>
+                            <SelectContent className="rounded-xl border-slate-200 bg-white">
                                 <SelectItem value="nenhum">Nenhum veículo vinculado</SelectItem>
                                 {vehicles.map((v) => (
                                     <SelectItem key={v.id} value={v.id}>
