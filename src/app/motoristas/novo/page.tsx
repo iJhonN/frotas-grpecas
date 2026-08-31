@@ -71,7 +71,6 @@ export default function NovoMotoristaPage() {
                 const list = data || []
                 setCompanies(list)
 
-                // Define a empresa pré-selecionada com base no contexto global
                 if (selectedCompany && selectedCompany.id !== "all") {
                     setFormData((prev) => ({ ...prev, company_id: selectedCompany.id }))
                 } else if (list.length > 0) {
@@ -187,12 +186,16 @@ export default function NovoMotoristaPage() {
                             onValueChange={(val) => setFormData((prev) => ({ ...prev, company_id: val || "", veiculo_atual_id: "" }))}
                         >
                             <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-white">
-                                <SelectValue placeholder="Selecione a empresa do motorista" />
+                                <SelectValue placeholder="Selecione a empresa do motorista">
+                                    {companies.find((c) => c.id === formData.company_id)?.nome_fantasia ||
+                                        companies.find((c) => c.id === formData.company_id)?.razao_social ||
+                                        companies.find((c) => c.id === formData.company_id)?.nome}
+                                </SelectValue>
                             </SelectTrigger>
                             <SelectContent className="rounded-xl border-slate-200 bg-white">
                                 {companies.map((c) => (
                                     <SelectItem key={c.id} value={c.id}>
-                                        {c.nome || c.nome_fantasia || c.razao_social || "Empresa"}
+                                        {c.nome_fantasia || c.razao_social || c.nome || "Empresa sem nome"}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
