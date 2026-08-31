@@ -185,16 +185,16 @@ export default function NovoMotoristaPage() {
                             value={formData.company_id}
                             onValueChange={(val) => setFormData((prev) => ({ ...prev, company_id: val || "", veiculo_atual_id: "" }))}
                         >
-                            <SelectTrigger className="h-10 rounded-xl border-slate-200 bg-white">
+                            <SelectTrigger className="h-10 w-full rounded-xl border-slate-200 bg-white px-3 text-xs flex items-center justify-between">
                                 <SelectValue placeholder="Selecione a empresa do motorista">
                                     {companies.find((c) => c.id === formData.company_id)?.nome_fantasia ||
                                         companies.find((c) => c.id === formData.company_id)?.razao_social ||
                                         companies.find((c) => c.id === formData.company_id)?.nome}
                                 </SelectValue>
                             </SelectTrigger>
-                            <SelectContent className="rounded-xl border-slate-200 bg-white">
+                            <SelectContent className="rounded-xl border-slate-200 bg-white min-w-[280px]">
                                 {companies.map((c) => (
-                                    <SelectItem key={c.id} value={c.id}>
+                                    <SelectItem key={c.id} value={c.id} className="text-xs">
                                         {c.nome_fantasia || c.razao_social || c.nome || "Empresa sem nome"}
                                     </SelectItem>
                                 ))}
